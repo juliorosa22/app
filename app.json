@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "okanassist",
+    "slug": "okanassist",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e3a8a"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.okanassist.mobile"
+    },
+    "android": {
+      "package": "com.okanassist.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1e3a8a"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "googleWebClientId": "279482558276-20ea0o6hqhj9jl7eeqrpok9hptoma5rc.apps.googleusercontent.com",
+      "apiUrl": "http://0.0.0.0:8000",
+      "eas": {
+        "projectId": "63febc71-0f27-4e89-8725-f394dcba0ca2"
+      }
+    },
+    "scheme": "okanassist",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "plugins": [
+      "expo-web-browser"
+    ]
+  }
+}
