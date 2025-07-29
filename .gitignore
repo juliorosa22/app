@@ -60,8 +60,6 @@ dist/
 !src/
 !.gitignore
 !package.json
-!app.json
-!App.js
 !App.tsx
 !babel.config.js
 !metro.config.js
