@@ -56,7 +56,7 @@ build/
 dist/
 
 # Ignore everything except src folder
-/*
+
 !src/
 !.gitignore
 !package.json
