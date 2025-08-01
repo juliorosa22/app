@@ -9,7 +9,8 @@ WebBrowser.maybeCompleteAuthSession();
 class ExpoGoogleAuth {
   constructor() {
     // Force the proxy URI
-    this.redirectUri = 'https://auth.expo.io/@okanassist22/okanassist'; 
+    //this.redirectUri = 'https://auth.expo.io/@okanassist22/okanassist'; 
+    this.redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
     console.log('🔗 Google Auth Redirect URI:', this.redirectUri);
   }
 

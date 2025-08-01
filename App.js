@@ -1,4 +1,5 @@
 
+import 'react-native-gesture-handler'; // Must be at the top
 import React from 'react';
 import { View } from 'react-native';
 import { ThemeProvider } from './src/context/ThemeContext';
