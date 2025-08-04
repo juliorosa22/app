@@ -1,34 +1,86 @@
-// app/src/services/expoGoogleAuth.js - Fixed version
+// src/services/expoGoogleAuth.js - Update existing file
 import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import * as Crypto from 'expo-crypto';
 import Constants from 'expo-constants';
+import ApiService from './api';
 
 WebBrowser.maybeCompleteAuthSession();
 
 class ExpoGoogleAuth {
   constructor() {
-    // Force the proxy URI
-    //this.redirectUri = 'https://auth.expo.io/@okanassist22/okanassist'; 
-    this.redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+    this.redirectUri = AuthSession.makeRedirectUri({ 
+      scheme: Constants.expoConfig?.scheme || 'okanassist',
+      path: 'auth/callback'
+    });
     console.log('🔗 Google Auth Redirect URI:', this.redirectUri);
   }
 
   async signIn() {
     try {
+      console.log('🚀 Starting Google OAuth flow...');
+
+      // First, try to get the OAuth URL from your API
+      try {
+        const urlResponse = await ApiService.getGoogleAuthUrl(
+          Constants.expoConfig?.scheme || 'okanassist'
+        );
+
+        if (urlResponse.success) {
+          console.log('🔗 Using API-provided OAuth URL');
+          return await this._handleOAuthUrl(urlResponse.auth_url);
+        }
+      } catch (apiError) {
+        console.log('⚠️ API OAuth URL failed, using direct method:', apiError.message);
+      }
+
+      // Fallback to direct OAuth if API method fails
+      return await this._directOAuthFlow();
+
+    } catch (error) {
+      console.error('❌ Google Auth error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async _handleOAuthUrl(authUrl) {
+    try {
+      // Open the OAuth URL provided by your API
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        this.redirectUri,
+        {
+          dismissButtonStyle: 'cancel',
+          showInRecents: false,
+        }
+      );
+
+      if (result.type === 'success') {
+        return await this._processOAuthResult(result.url);
+      } else if (result.type === 'cancel') {
+        return { success: false, error: 'User cancelled', cancelled: true };
+      } else {
+        return { success: false, error: 'OAuth failed' };
+      }
+    } catch (error) {
+      throw new Error(`OAuth URL handling failed: ${error.message}`);
+    }
+  }
+
+  async _directOAuthFlow() {
+    try {
       const googleClientId = Constants.expoConfig?.extra?.googleWebClientId;
       
       if (!googleClientId) {
-        throw new Error('Google Client ID not found');
+        throw new Error('Google Client ID not found in configuration');
       }
 
-      console.log('🔍 Starting Google OAuth (Code Flow)...');
+      console.log('🔍 Starting direct Google OAuth flow...');
 
-      // Use Authorization Code Flow - more reliable with Expo
       const request = new AuthSession.AuthRequest({
         clientId: googleClientId,
         scopes: ['openid', 'profile', 'email'],
-        responseType: AuthSession.ResponseType.Code, // Code flow instead of implicit
+        responseType: AuthSession.ResponseType.Code,
         redirectUri: this.redirectUri,
         additionalParameters: {},
         extraParams: {
@@ -37,8 +89,6 @@ class ExpoGoogleAuth {
         },
       });
 
-      console.log('🚀 Starting OAuth flow...');
-
       const result = await request.promptAsync({
         authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
         useProxy: true,
@@ -46,19 +96,13 @@ class ExpoGoogleAuth {
         showInRecents: false,
       });
 
-      console.log('📡 OAuth Result Type:', result.type);
-
       if (result.type === 'success') {
-        console.log('✅ Got authorization code, exchanging for tokens...');
-        
         const authCode = result.params?.code;
         if (!authCode) {
           throw new Error('No authorization code received');
         }
 
-        console.log('🔄 Exchanging code for ID token...');
-        
-        // Exchange authorization code for tokens directly with Google
+        // Exchange code for tokens
         const tokenResult = await this.exchangeCodeForTokens(
           authCode, 
           googleClientId,
@@ -66,30 +110,65 @@ class ExpoGoogleAuth {
         );
 
         return tokenResult;
-
       } else if (result.type === 'cancel') {
-        console.log('🚫 User cancelled');
         return { success: false, error: 'User cancelled', cancelled: true };
-        
-      } else if (result.type === 'error') {
-        console.error('❌ OAuth error:', result.error);
-        return { 
-          success: false, 
-          error: result.error?.description || 'Authentication failed' 
-        };
-        
       } else {
-        console.error('❌ Unknown result type:', result.type);
-        return { success: false, error: `Unknown result: ${result.type}` };
+        return { success: false, error: 'OAuth failed' };
       }
-      
     } catch (error) {
-      console.error('❌ Google Auth error:', error);
-      return { success: false, error: error.message };
+      throw new Error(`Direct OAuth flow failed: ${error.message}`);
+    }
+  }
+
+  async _processOAuthResult(resultUrl) {
+    try {
+      const url = new URL(resultUrl);
+      const accessToken = url.searchParams.get('access_token');
+      const refreshToken = url.searchParams.get('refresh_token');
+      const idToken = url.searchParams.get('id_token');
+      const code = url.searchParams.get('code');
+
+      if (idToken) {
+        // Use ID token to authenticate with your API
+        console.log('🔄 Authenticating with API using ID token...');
+        
+        const authResponse = await ApiService.loginWithGoogle(idToken);
+        
+        if (authResponse.success) {
+          return {
+            success: true,
+            user: authResponse.user,
+            accessToken: authResponse.access_token,
+            refreshToken: authResponse.refresh_token,
+            expiresIn: authResponse.expires_in,
+          };
+        } else {
+          throw new Error('API authentication failed');
+        }
+      } else if (code) {
+        // Exchange authorization code
+        console.log('🔄 Exchanging authorization code...');
+        // You might need to implement code exchange via your API
+        throw new Error('Authorization code exchange not implemented');
+      } else if (accessToken) {
+        // Direct token usage (less secure, but might work)
+        console.log('🔄 Using access token directly...');
+        return {
+          success: true,
+          accessToken,
+          refreshToken,
+          // Note: You'll need to get user info separately
+        };
+      } else {
+        throw new Error('No valid tokens received from OAuth');
+      }
+    } catch (error) {
+      throw new Error(`OAuth result processing failed: ${error.message}`);
     }
   }
 
   async exchangeCodeForTokens(authCode, clientId, codeVerifier) {
+    // Keep your existing implementation, but also try to use your API
     try {
       console.log('🔄 Exchanging authorization code for tokens...');
       
@@ -100,10 +179,8 @@ class ExpoGoogleAuth {
         code: authCode,
         grant_type: 'authorization_code',
         redirect_uri: this.redirectUri,
-        code_verifier: codeVerifier, // PKCE code verifier
+        code_verifier: codeVerifier,
       });
-
-      console.log('📡 Making token exchange request...');
 
       const response = await fetch(tokenEndpoint, {
         method: 'POST',
@@ -114,31 +191,25 @@ class ExpoGoogleAuth {
       });
 
       const data = await response.json();
-      console.log('📡 Token response status:', response.status);
 
       if (response.ok && data.id_token) {
-        console.log('✅ Tokens received successfully');
+        console.log('✅ Tokens received, authenticating with API...');
         
-        // Decode user info from ID token
-        const userInfo = this.decodeJWTPayload(data.id_token);
-        console.log('👤 User info decoded:', userInfo.email);
+        // Use the ID token with your API
+        const authResponse = await ApiService.loginWithGoogle(data.id_token);
         
-        return {
-          success: true,
-          idToken: data.id_token,
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
-          user: {
-            id: userInfo.sub,
-            email: userInfo.email,
-            name: userInfo.name,
-            picture: userInfo.picture,
-            givenName: userInfo.given_name,
-            familyName: userInfo.family_name,
-          },
-        };
+        if (authResponse.success) {
+          return {
+            success: true,
+            user: authResponse.user,
+            accessToken: authResponse.access_token,
+            refreshToken: authResponse.refresh_token,
+            expiresIn: authResponse.expires_in,
+          };
+        } else {
+          throw new Error('API authentication failed');
+        }
       } else {
-        console.error('❌ Token exchange failed:', data);
         throw new Error(data.error_description || 'Failed to exchange code for tokens');
       }
       
@@ -151,6 +222,7 @@ class ExpoGoogleAuth {
     }
   }
 
+  // Keep your existing decodeJWTPayload method
   decodeJWTPayload(token) {
     try {
       const parts = token.split('.');
@@ -165,6 +237,16 @@ class ExpoGoogleAuth {
     } catch (error) {
       console.error('JWT decode error:', error);
       return {};
+    }
+  }
+
+  async signOut() {
+    try {
+      await WebBrowser.dismissBrowser();
+      return { success: true };
+    } catch (error) {
+      console.error('Google Sign-Out Error:', error);
+      return { success: false, error: error.message };
     }
   }
 }
