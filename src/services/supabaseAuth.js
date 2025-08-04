@@ -8,6 +8,7 @@ WebBrowser.maybeCompleteAuthSession();
 
 class SupabaseAuthService {
   constructor() {
+    //const scheme = Constants.expoConfig?.scheme || 'okanassist';
     this.redirectUri = AuthSession.makeRedirectUri({ 
       scheme: Constants.expoConfig?.scheme || 'okanassist',
       path: 'auth/callback'
@@ -15,121 +16,108 @@ class SupabaseAuthService {
     console.log('🔗 Supabase Auth Redirect URI:', this.redirectUri);
   }
 
-  async signInWithGoogle() {
-    try {
-      console.log('🚀 Starting Supabase Google OAuth...');
+ async signInWithGoogle() {
+  try {
+    console.log('🚀 Starting Supabase Google OAuth...');
 
-      // Get OAuth URL from Supabase
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: this.redirectUri,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
+    // Get OAuth URL
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: this.redirectUri,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
         },
-      });
+      },
+    });
 
-      if (error) {
-        throw new Error(`Supabase OAuth error: ${error.message}`);
-      }
+    if (error || !data?.url) {
+      throw new Error('Failed to get OAuth URL');
+    }
 
-      if (!data?.url) {
-        throw new Error('No OAuth URL received from Supabase');
-      }
-      console.log('🔗 OAuth URL generated:', data.url.substring(0, 100) + '...');
-      console.log('🔗 Opening Supabase OAuth URL...');
+    console.log('🔗 OAuth URL generated:', data.url);
+    console.log('🔗 Opening OAuth URL...');
 
-      // Open the OAuth URL in browser
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        this.redirectUri,
-        {
-          dismissButtonStyle: 'cancel',
-          showInRecents: false,
-        }
-      );
+    // Simple WebBrowser call with lots of logging
+    const result = await WebBrowser.openAuthSessionAsync(
+      data.url,
+      this.redirectUri
+    );
 
-      console.log('📡 OAuth Result:', result.type);
+    // Log EVERYTHING about the result
+    console.log('📡 WebBrowser returned!');
+    console.log('📡 Result type:', result.type);
+    console.log('📡 Full result object:');
+    console.log(JSON.stringify(result, null, 2));
 
-      if (result.type === 'success') {
-        console.log('✅ OAuth success, processing callback...');
+    if (result.type === 'success') {
+      console.log('✅ WebBrowser success!');
+      console.log('🔗 Result URL:', result.url);
+      
+      // Try to extract tokens immediately
+      const url = new URL(result.url);
+      console.log('🔍 URL search:', url.search);
+      console.log('🔍 URL hash:', url.hash);
+      
+      // Simple token extraction
+      const accessToken = url.searchParams.get('access_token') || 
+                         (url.hash.match(/access_token=([^&]+)/) || [])[1];
+      
+      console.log('🔍 Access token found:', !!accessToken);
+      
+      if (accessToken) {
+        console.log('✅ Token found, setting session...');
         
-        // Parse the callback URL to extract tokens
-        const url = new URL(result.url);
-        
-        // Log callback parameters for debugging
-        console.log('🔍 Callback URL parameters:');
-        for (const [key, value] of url.searchParams.entries()) {
-          console.log(`   ${key}: ${value.substring(0, 20)}...`);
-        }
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: url.searchParams.get('refresh_token') || 
+                        (url.hash.match(/refresh_token=([^&]+)/) || [])[1],
+        });
 
-        // Extract session data from URL fragment or search params
-        const accessToken = url.searchParams.get('access_token') || 
-                           this.extractFromFragment(result.url, 'access_token');
-        const refreshToken = url.searchParams.get('refresh_token') || 
-                            this.extractFromFragment(result.url, 'refresh_token');
-
-        if (accessToken) {
-          // Set the session in Supabase
-          const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (sessionError) {
-            throw new Error(`Session error: ${sessionError.message}`);
-          }
-
-          console.log('✅ Supabase session established');
-
-          // Get user data
-          const { data: userData, error: userError } = await supabase.auth.getUser();
-          
-          if (userError) {
-            throw new Error(`User data error: ${userError.message}`);
-          }
-
-          console.log('✅ User data retrieved:', userData.user?.email);
-
-          return {
-            success: true,
-            user: {
-              id: userData.user?.id,
-              email: userData.user?.email,
-              name: userData.user?.user_metadata?.full_name || userData.user?.user_metadata?.name,
-              avatar_url: userData.user?.user_metadata?.avatar_url,
-              provider: 'google',
-              email_verified: userData.user?.email_confirmed_at !== null,
-            },
-            session: sessionData.session,
-            accessToken: sessionData.session?.access_token,
-            refreshToken: sessionData.session?.refresh_token,
-          };
-        } else {
-          throw new Error('No access token found in callback URL');
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError);
+          throw new Error(`Session error: ${sessionError.message}`);
         }
 
-      } else if (result.type === 'cancel') {
-        console.log('🚫 User cancelled OAuth');
-        return { success: false, error: 'User cancelled', cancelled: true };
+        console.log('✅ Session set successfully!');
         
-      } else {
-        console.error('❌ OAuth failed:', result);
-        return { 
-          success: false, 
-          error: `OAuth failed: ${result.type}` 
+        // Get user
+        const { data: userData } = await supabase.auth.getUser();
+        console.log('✅ User:', userData.user?.email);
+
+        return {
+          success: true,
+          user: {
+            id: userData.user?.id,
+            email: userData.user?.email,
+            name: userData.user?.user_metadata?.full_name || 
+                  userData.user?.user_metadata?.name || 
+                  'Google User',
+            avatar_url: userData.user?.user_metadata?.avatar_url,
+            provider: 'google',
+            email_verified: userData.user?.email_confirmed_at !== null,
+          },
+          session: sessionData.session,
         };
+      } else {
+        console.error('❌ No access token in callback URL');
+        return { success: false, error: 'No access token found' };
       }
       
-    } catch (error) {
-      console.error('❌ Supabase Google Auth error:', error);
-      return { success: false, error: error.message };
+    } else if (result.type === 'cancel') {
+      console.log('🚫 User cancelled');
+      return { success: false, error: 'User cancelled', cancelled: true };
+    } else {
+      console.error('❌ WebBrowser failed:', result.type);
+      return { success: false, error: `OAuth failed: ${result.type}` };
     }
+    
+  } catch (error) {
+    console.error('❌ OAuth error:', error);
+    return { success: false, error: error.message };
   }
-
-
+}
 async processOAuthCallback(callbackUrl) {
     try {
       console.log('🔄 Processing OAuth callback...');

@@ -227,6 +227,17 @@ export default function LoginScreen({ navigation }) {
 
   const isLoading = loading || googleLoading;
 
+  const testWebBrowser = async () => {
+  console.log('🧪 Testing WebBrowser...');
+  
+  const result = await WebBrowser.openAuthSessionAsync(
+    'https://www.google.com',
+    'exp://192.168.0.5:8081/--/auth/callback'
+  );
+  
+  console.log('🧪 WebBrowser test result:', result);
+};
+
   return (
     <KeyboardAvoidingView 
       style={styles.container}
