@@ -479,15 +479,18 @@ class ApiService {
     if (!description) return "Other";
 
     const descLower = description.toLowerCase();
-    
+
     const categories = {
       expense: {
-        "Food & Dining": ["restaurant", "coffee", "lunch", "dinner", "food", "grocery", "takeout", "starbucks", "mcdonalds"],
-        "Transportation": ["uber", "taxi", "gas", "fuel", "parking", "bus", "train", "flight", "lyft"],
+        "Essentials": [
+          "rent", "mortgage", "utility", "electric", "water", "gas", "fuel", "groceries", "grocery", "food", "insurance", "phone", "internet", "healthcare", "doctor", "pharmacy", "medicine", "medical", "dentist"
+        ],
+        "Food & Dining": ["restaurant", "coffee", "lunch", "dinner", "takeout", "starbucks", "mcdonalds"],
+        "Transportation": ["uber", "taxi", "parking", "bus", "train", "flight", "lyft"],
         "Shopping": ["amazon", "store", "clothes", "electronics", "book", "shopping", "mall"],
         "Entertainment": ["movie", "game", "concert", "netflix", "spotify", "streaming", "music"],
-        "Utilities": ["electric", "water", "internet", "phone", "rent", "mortgage", "utility"],
-        "Healthcare": ["doctor", "hospital", "pharmacy", "medicine", "dentist", "medical"],
+        "Utilities": ["utility"], // Keep for legacy, but most are now in Essentials
+        "Healthcare": ["doctor", "hospital", "pharmacy", "medicine", "dentist", "medical"], // Also in Essentials
         "Travel": ["hotel", "airbnb", "vacation", "trip", "booking", "travel"],
         "Education": ["school", "course", "tuition", "book", "education", "training"]
       },
@@ -503,13 +506,13 @@ class ApiService {
     };
 
     const typeCategories = categories[transactionType] || {};
-    
+
     for (const [category, keywords] of Object.entries(typeCategories)) {
       if (keywords.some(keyword => descLower.includes(keyword))) {
         return category;
       }
     }
-    
+
     return "Other";
   }
 
@@ -533,6 +536,46 @@ class ApiService {
       grouped[value] = (grouped[value] || 0) + 1;
     });
     return grouped;
+  }
+
+  async updateTransaction(transactionId, updateData) {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await this.supabase
+        .from('transactions')
+        .update({ ...updateData, updated_at: new Date().toISOString() })
+        .eq('id', transactionId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, transaction: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteTransaction(transactionId) {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await this.supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
   }
 }
 

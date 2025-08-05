@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../services/api';
+import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function QuickAddScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
@@ -22,6 +24,7 @@ export default function QuickAddScreen({ navigation }) {
   // State for form mode
   const [activeTab, setActiveTab] = useState('transaction'); // 'transaction' or 'reminder'
   const [loading, setLoading] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Transaction form state
   const [transactionForm, setTransactionForm] = useState({
@@ -41,6 +44,16 @@ export default function QuickAddScreen({ navigation }) {
     priority: 'medium', // 'urgent', 'high', 'medium', 'low'
     reminder_type: 'general' // 'task', 'event', 'deadline', 'habit', 'general'
   });
+
+  // Categories state
+  const [categories, setCategories] = useState([]);
+
+  // Fetch categories on transaction type change
+  useEffect(() => {
+    ApiService.getCategories().then(res => {
+      if (res.success) setCategories(res.categories[transactionForm.transaction_type]);
+    });
+  }, [transactionForm.transaction_type]);
 
   // Form validation
   const validateTransaction = () => {
@@ -168,10 +181,6 @@ export default function QuickAddScreen({ navigation }) {
   };
 
   // Get today's date in YYYY-MM-DD format
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
 
   const styles = StyleSheet.create({
     container: {
@@ -379,14 +388,16 @@ export default function QuickAddScreen({ navigation }) {
       <View style={styles.row}>
         <View style={[styles.inputGroup, styles.flex1]}>
           <Text style={styles.label}>Category</Text>
-          <TextInput
+          <Picker
+            selectedValue={transactionForm.category}
+            onValueChange={(value) => setTransactionForm({ ...transactionForm, category: value })}
             style={styles.input}
-            placeholder="Auto-detected"
-            placeholderTextColor={colors.textLight}
-            value={transactionForm.category}
-            onChangeText={(text) => setTransactionForm({...transactionForm, category: text})}
-            maxLength={50}
-          />
+          >
+            <Picker.Item label="Auto-detect" value="" />
+            {categories.map(cat => (
+              <Picker.Item key={cat} label={cat} value={cat} />
+            ))}
+          </Picker>
         </View>
         <View style={[styles.inputGroup, styles.flex1]}>
           <Text style={styles.label}>Merchant</Text>
@@ -448,27 +459,26 @@ export default function QuickAddScreen({ navigation }) {
       </View>
 
       {/* Due Date and Time */}
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, styles.flex1]}>
-          <Text style={styles.label}>Due Date</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={getTodayDate()}
-            placeholderTextColor={colors.textLight}
-            value={reminderForm.due_date}
-            onChangeText={(text) => setReminderForm({...reminderForm, due_date: text})}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Due Date & Time</Text>
+        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+          <Text style={styles.input}>
+            {reminderForm.due_date
+              ? new Date(reminderForm.due_date).toLocaleString()
+              : 'Select date & time'}
+          </Text>
+        </TouchableOpacity>
+        {showDatePicker && (
+          <DateTimePicker
+            value={reminderForm.due_date ? new Date(reminderForm.due_date) : new Date()}
+            mode="datetime"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowDatePicker(false);
+              if (selectedDate) setReminderForm({ ...reminderForm, due_date: selectedDate.toISOString() });
+            }}
           />
-        </View>
-        <View style={[styles.inputGroup, styles.flex1]}>
-          <Text style={styles.label}>Time</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="09:00"
-            placeholderTextColor={colors.textLight}
-            value={reminderForm.due_time}
-            onChangeText={(text) => setReminderForm({...reminderForm, due_time: text})}
-          />
-        </View>
+        )}
       </View>
 
       {/* Priority */}

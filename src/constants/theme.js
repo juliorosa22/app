@@ -40,8 +40,8 @@ export const theme = {
     
     // Expense & Reminder specific colors
     expense: '#ef4444',         // Red for expenses
-    income: '#10b981',          // Green for income
-    reminder: '#8b5cf6',        // Purple for reminders
+    income: '#0fe32fff',          // Green for income
+    reminder: '#f5db32ff',        // Yellow for reminders
     
     // Interactive elements
     link: '#3b82f6',            // Blue links
@@ -155,6 +155,16 @@ export const theme = {
       padding: 16,
       borderRadius: 12,
     },
+  },
+  
+  // Icon configuration
+  icons: {
+    home: { library: 'MaterialIcons', name: 'home', emoji: '🏠' },
+    transactions: { library: 'MaterialIcons', name: 'payments', emoji: '💳' },
+    reminders: { library: 'MaterialIcons', name: 'notifications', emoji: '🔔' },
+    quickAdd: { library: 'MaterialIcons', name: 'add-circle-outline', emoji: '➕' },
+    settings: { library: 'MaterialIcons', name: 'settings', emoji: '⚙️' },
+    // Add more as needed
   },
 };
 

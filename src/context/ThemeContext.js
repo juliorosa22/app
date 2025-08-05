@@ -35,8 +35,9 @@ export const ThemeProvider = ({ children }) => {
     spacing: currentTheme.spacing,
     typography: currentTheme.typography,
     borderRadius: currentTheme.borderRadius,
-    shadows: currentTheme.shadows, // Make sure shadows is included
+    shadows: currentTheme.shadows,
     components: currentTheme.components,
+    icons: currentTheme.icons, // <-- Add this line
   };
   
   return (
