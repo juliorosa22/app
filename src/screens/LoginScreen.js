@@ -59,6 +59,10 @@ export default function LoginScreen({ navigation }) {
     
     if (!result.success) {
       Alert.alert('Login Failed', result.message);
+    } else {
+      Alert.alert('Success', 'Login successful!');
+      // Optionally navigate or reset form here
+      // navigation.navigate('Home'); // If you want to navigate manually
     }
     // Success is handled by auth context navigation
   };

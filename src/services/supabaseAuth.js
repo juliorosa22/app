@@ -283,6 +283,36 @@ async processOAuthCallback(callbackUrl) {
       callback(event, session);
     });
   }
+
+  async signUpWithEmail({ email, password, name, phone, currency }) {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+            phone,
+            currency,
+          },
+        },
+      });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async signInWithEmail(email, password) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 export default new SupabaseAuthService();

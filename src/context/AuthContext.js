@@ -192,6 +192,38 @@ useEffect(() => {
     }
   };
 
+  const register = async (formData) => {
+    setLoading(true);
+    try {
+      const result = await SupabaseAuthService.signUpWithEmail(formData);
+      if (!result.success) {
+        return { success: false, message: result.error };
+      }
+      // Session will be handled by auth state listener
+      return { success: true, message: 'Account created! Please check your email to verify.' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email, password) => {
+    setLoading(true);
+    try {
+      const result = await SupabaseAuthService.signInWithEmail(email, password);
+      if (!result.success) {
+        return { success: false, message: result.error };
+      }
+      // Session will be handled by auth state listener
+      return { success: true, message: 'Login successful!' };
+    } catch (error) {
+      return { success: false, message: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -199,6 +231,8 @@ useEffect(() => {
     session,
     loginWithGoogle,
     logout,
+    register,
+    login,
     // For API calls, you can use session.access_token
     getAccessToken: () => session?.access_token,
   };

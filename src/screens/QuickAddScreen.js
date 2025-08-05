@@ -97,7 +97,7 @@ export default function QuickAddScreen({ navigation }) {
             },
             {
               text: 'View Transactions',
-              onPress: () => navigation.navigate('Expenses')
+              onPress: () => navigation.navigate('Transactions')
             }
           ]
         );

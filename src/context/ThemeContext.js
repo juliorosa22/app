@@ -26,7 +26,7 @@ export const ThemeProvider = ({ children }) => {
     setIsDarkMode(!isDarkMode);
   };
   
-  // Theme context value
+  // Theme context value with all theme properties
   const themeContextValue = {
     theme: currentTheme,
     isDarkMode,
@@ -35,7 +35,7 @@ export const ThemeProvider = ({ children }) => {
     spacing: currentTheme.spacing,
     typography: currentTheme.typography,
     borderRadius: currentTheme.borderRadius,
-    shadows: currentTheme.shadows,
+    shadows: currentTheme.shadows, // Make sure shadows is included
     components: currentTheme.components,
   };
   
@@ -49,6 +49,6 @@ export const ThemeProvider = ({ children }) => {
 
 // Helper hook for creating themed styles
 export const useThemedStyles = (styleFunction) => {
-  const { theme, colors, spacing, typography } = useTheme();
-  return styleFunction({ theme, colors, spacing, typography });
+  const { theme, colors, spacing, typography, shadows } = useTheme();
+  return styleFunction({ theme, colors, spacing, typography, shadows });
 };
