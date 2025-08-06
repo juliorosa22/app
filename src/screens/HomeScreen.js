@@ -15,95 +15,83 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import ApiService from '../services/api';
+import TransactionCard from '../components/TransactionCard';
+import { useDataCache } from '../context/DataCacheContext';
 
 export default function HomeScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
   const { user } = useAuth();
+  const { getTransactions, getTransactionSummary, getReminders, invalidateCache } = useDataCache();
 
   // State management
+  const [data, setData] = useState({
+    summary: {
+      total_expenses: 0,
+      total_income: 0,
+      net_income: 0,
+      expense_count: 0,
+      income_count: 0
+    },
+    transactions: [],
+    reminders: []
+  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [data, setData] = useState({
-    transactions: [],
-    reminders: [],
-    transactionSummary: null,
-    reminderSummary: null
-  });
   const [error, setError] = useState(null);
 
   // Load data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      loadHomeData();
+      fetchData();
     }, [])
   );
 
-  const loadHomeData = async (isRefresh = false) => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
+      setLoading(!forceRefresh);
 
-      // Fetch all data in parallel for better performance
-      const [
-        transactionsResult,
-        remindersResult,
-        transactionSummaryResult,
-        reminderSummaryResult
-      ] = await Promise.all([
-        ApiService.getTransactions(30), // Last 30 days
-        ApiService.getReminders(false, 10), // Top 10 pending reminders
-        ApiService.getTransactionSummary(30),
-        ApiService.getReminderSummary(30)
+      // Fetch data from cache first, then from API if needed
+      const [summaryResult, transactionsResult, remindersResult] = await Promise.all([
+        getTransactionSummary(30, forceRefresh),
+        getTransactions(30, null, forceRefresh),
+        getReminders(30, forceRefresh)
       ]);
 
-      // Check for errors
-      if (!transactionsResult.success) {
-        throw new Error(transactionsResult.error || 'Failed to load transactions');
-      }
-      if (!remindersResult.success) {
-        throw new Error(remindersResult.error || 'Failed to load reminders');
-      }
-      if (!transactionSummaryResult.success) {
-        throw new Error(transactionSummaryResult.error || 'Failed to load transaction summary');
-      }
-      if (!reminderSummaryResult.success) {
-        throw new Error(reminderSummaryResult.error || 'Failed to load reminder summary');
+      if (summaryResult.success) {
+        setData(prev => ({
+          ...prev,
+          summary: summaryResult.summary
+        }));
       }
 
-      // Update state with fetched data
-      setData({
-        transactions: transactionsResult.transactions.slice(0, 5), // Show only recent 5
-        reminders: remindersResult.reminders.slice(0, 5), // Show only top 5
-        transactionSummary: transactionSummaryResult.summary,
-        reminderSummary: reminderSummaryResult.summary
-      });
+      if (transactionsResult.success) {
+        setData(prev => ({
+          ...prev,
+          transactions: transactionsResult.transactions.slice(0, 5) // Show only recent 5
+        }));
+      }
+
+      if (remindersResult.success) {
+        setData(prev => ({
+          ...prev,
+          reminders: remindersResult.reminders
+        }));
+      }
 
     } catch (error) {
-      console.error('Error loading home data:', error);
-      setError(error.message);
-      
-      // Show error alert for critical failures
-      Alert.alert(
-        'Error Loading Data',
-        error.message,
-        [
-          { text: 'Retry', onPress: () => loadHomeData() },
-          { text: 'OK', style: 'cancel' }
-        ]
-      );
+      console.error('Error fetching home data:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [getTransactionSummary, getTransactions, getReminders]);
 
-  const onRefresh = () => {
-    loadHomeData(true);
-  };
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Invalidate cache and force refresh
+    invalidateCache();
+    fetchData(true);
+  }, [fetchData, invalidateCache]);
 
   const formatCurrency = (amount, currency = 'USD') => {
     const symbols = { USD: '$', EUR: '€', BRL: 'R$', GBP: '£', JPY: '¥' };
@@ -152,29 +140,12 @@ export default function HomeScreen({ navigation }) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  // Replace renderTransactionItem with TransactionCard usage
   const renderTransactionItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.itemCard} 
-      onPress={() => navigation.navigate('Expenses')}
-      activeOpacity={0.7}
-    >
-      <View style={styles.itemHeader}>
-        <Text style={styles.itemTitle} numberOfLines={1}>
-          {item.description}
-        </Text>
-        <Text style={[
-          styles.itemAmount,
-          { color: item.transaction_type === 'expense' ? colors.error : colors.success }
-        ]}>
-          {item.transaction_type === 'expense' ? '-' : '+'}
-          {formatCurrency(item.amount, user?.currency)}
-        </Text>
-      </View>
-      <View style={styles.itemFooter}>
-        <Text style={styles.itemCategory}>{item.category}</Text>
-        <Text style={styles.itemDate}>{formatDate(item.date)}</Text>
-      </View>
-    </TouchableOpacity>
+    <TransactionCard
+      transaction={item}
+      onPress={(selectedTx) => navigation.navigate('EditTransactionScreen', { transaction: selectedTx })}
+    />
   );
 
   const renderReminderItem = ({ item }) => {
@@ -436,7 +407,7 @@ export default function HomeScreen({ navigation }) {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.welcomeText}>Welcome back,</Text>
+          <Text style={styles.welcomeText}>Hello,</Text>
           <Text style={styles.nameText}>{user?.name || 'User'}</Text>
         </View>
 
@@ -445,9 +416,9 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.statCard}>
             <Text style={[
               styles.statAmount,
-              { color: data.transactionSummary?.net_income >= 0 ? colors.success : colors.error }
+              { color: data.summary.net_income >= 0 ? colors.success : colors.error }
             ]}>
-              {formatCurrency(data.transactionSummary?.net_income || 0, user?.currency)}
+              {formatCurrency(data.summary.net_income || 0, user?.currency)}
             </Text>
             <Text style={styles.statLabel}>Net This Month</Text>
           </View>
@@ -459,7 +430,7 @@ export default function HomeScreen({ navigation }) {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statAmount}>
-              {(data.transactionSummary?.expense_count || 0) + (data.transactionSummary?.income_count || 0)}
+              {(data.summary.expense_count || 0) + (data.summary.income_count || 0)}
             </Text>
             <Text style={styles.statLabel}>Transactions</Text>
           </View>
@@ -471,7 +442,7 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.sectionTitle}>💰 Recent Transactions</Text>
             <TouchableOpacity 
               style={styles.seeAllButton}
-              onPress={() => navigation.navigate('Expenses')}
+              onPress={() => navigation.navigate('Transactions')}
             >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>

@@ -200,7 +200,7 @@ function AppStackNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="EditTransaction"
+        name="EditTransactionScreen"
         component={EditTransactionScreen}
         options={{ title: 'Edit Transaction' }}
       />

@@ -4,19 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'; // Add this impor
 import ApiService from '../services/api';
 
 export default function EditTransactionScreen({ route, navigation }) {
-  const { transactionId } = route.params;
-  const [transaction, setTransaction] = useState(null);
+  const { transaction } = route.params;
+  // Use transaction directly for editing
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Fetch transaction details
-    ApiService.getTransactions(365).then(res => {
-      if (res.success) {
-        const found = res.transactions.find(t => t.id === transactionId);
-        setTransaction(found);
-      }
-    });
-  }, [transactionId]);
 
   const handleUpdate = async () => {
     setLoading(true);
@@ -28,7 +18,7 @@ export default function EditTransactionScreen({ route, navigation }) {
       date: transaction.date,
       transaction_type: transaction.transaction_type,
     };
-    const result = await ApiService.updateTransaction(transactionId, updateData);
+    const result = await ApiService.updateTransaction(transaction.id, updateData);
     setLoading(false);
     if (result.success) {
       Alert.alert('Success', 'Transaction updated');
@@ -44,7 +34,7 @@ export default function EditTransactionScreen({ route, navigation }) {
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
           setLoading(true);
-          const result = await ApiService.deleteTransaction(transactionId);
+          const result = await ApiService.deleteTransaction(transaction.id);
           setLoading(false);
           if (result.success) {
             Alert.alert('Deleted', 'Transaction deleted');
@@ -56,12 +46,6 @@ export default function EditTransactionScreen({ route, navigation }) {
       }
     ]);
   };
-
-  if (!transaction) return (
-    <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-      <Text>Loading...</Text>
-    </SafeAreaView>
-  );
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>

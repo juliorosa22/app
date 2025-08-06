@@ -433,19 +433,34 @@ class ApiService {
   }
 
   async getCategories() {
-    // Static categories - could be moved to a database table later
+    // Use the same categories as categorizeTransaction
+    const categories = {
+      expense: [
+        "Essentials",
+        "Food & Dining",
+        "Transportation",
+        "Shopping",
+        "Entertainment",
+        "Utilities",
+        "Healthcare",
+        "Travel",
+        "Education",
+        "Other"
+      ],
+      income: [
+        "Salary",
+        "Freelance",
+        "Business",
+        "Investment",
+        "Gift",
+        "Refund",
+        "Rental",
+        "Other"
+      ]
+    };
     return {
       success: true,
-      categories: {
-        expense: [
-          "Food & Dining", "Transportation", "Shopping", "Entertainment",
-          "Utilities", "Healthcare", "Travel", "Education", "Other"
-        ],
-        income: [
-          "Salary", "Freelance", "Business", "Investment", 
-          "Gift", "Refund", "Rental", "Other"
-        ]
-      }
+      categories
     };
   }
 

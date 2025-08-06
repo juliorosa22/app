@@ -164,6 +164,8 @@ export const theme = {
     reminders: { library: 'MaterialIcons', name: 'notifications'/*, emoji: '🔔'*/ },
     quickAdd: { library: 'MaterialIcons', name: 'add-circle-outline'/*, emoji: '➕'*/ },
     settings: { library: 'MaterialIcons', name: 'settings'/*, emoji: '⚙️'*/ },
+    moneyon: { library: 'MaterialIcons', name: 'attach-money'/*, emoji: '💰'*/ },
+    moneyoff: { library: 'MaterialIcons', name: 'money-off'/*, emoji: '💸'*/ },
     // Add more as needed
   },
 };

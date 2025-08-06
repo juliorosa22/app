@@ -11,16 +11,19 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../services/api';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { theme } from '../constants/theme';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons'; // or 'react-native-vector-icons/MaterialIcons'
 
 export default function QuickAddScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   
   // State for form mode
   const [activeTab, setActiveTab] = useState('transaction'); // 'transaction' or 'reminder'
@@ -317,6 +320,13 @@ export default function QuickAddScreen({ navigation }) {
     flex1: {
       flex: 1,
     },
+    safeArea: {
+      flex: 1,
+      paddingTop: insets.top,
+      paddingBottom: insets.bottom,
+      paddingLeft: insets.left,
+      paddingRight: insets.right,
+    },
   });
 
   const renderTransactionForm = () => (
@@ -333,11 +343,17 @@ export default function QuickAddScreen({ navigation }) {
             ]}
             onPress={() => setTransactionForm({...transactionForm, transaction_type: 'expense'})}
           >
+          <MaterialIcons
+            name={theme.icons.moneyoff.name}
+            size={24}
+            color="red"
+            style={{ marginBottom: 4 }}
+          />
             <Text style={[
               styles.toggleText,
               transactionForm.transaction_type === 'expense' && styles.toggleTextActive
             ]}>
-              💸 Expense
+              Expense
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -348,11 +364,17 @@ export default function QuickAddScreen({ navigation }) {
             ]}
             onPress={() => setTransactionForm({...transactionForm, transaction_type: 'income'})}
           >
+          <MaterialIcons
+            name={theme.icons.moneyon.name}
+            size={24}
+            color="green"
+            style={{ marginBottom: 4 }}
+          />
             <Text style={[
               styles.toggleText,
               transactionForm.transaction_type === 'income' && styles.toggleTextActive
             ]}>
-              💰 Income
+              Income
             </Text>
           </TouchableOpacity>
         </View>
@@ -415,7 +437,11 @@ export default function QuickAddScreen({ navigation }) {
 
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+        style={[
+          styles.submitButton,
+          loading && styles.submitButtonDisabled,
+          { marginBottom: insets.bottom } // <-- Add this line
+        ]}
         onPress={handleCreateTransaction}
         disabled={loading}
       >
@@ -476,7 +502,10 @@ export default function QuickAddScreen({ navigation }) {
             display="default"
             onChange={(event, selectedDate) => {
               setShowDatePicker(false);
-              if (selectedDate) setReminderForm({ ...reminderForm, due_date: selectedDate.toISOString() });
+              if (event.type === "set" && selectedDate) {
+                setReminderForm({ ...reminderForm, due_date: selectedDate.toISOString() });
+              }
+              // Do nothing on "dismissed"
             }}
           />
         )}
@@ -536,7 +565,11 @@ export default function QuickAddScreen({ navigation }) {
 
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.submitButton, loading && styles.submitButtonDisabled]}
+        style={[
+          styles.submitButton,
+          loading && styles.submitButtonDisabled,
+          { marginBottom: insets.bottom } // <-- Add this line
+        ]}
         onPress={handleCreateReminder}
         disabled={loading}
       >
@@ -550,7 +583,7 @@ export default function QuickAddScreen({ navigation }) {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
       <KeyboardAvoidingView 
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import GoogleIcon from '../images/google-icon-logo-svgrepo-com.svg';
 
 export default function LoginScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
@@ -315,21 +316,48 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={[styles.googleButton, isLoading && styles.googleButtonDisabled]}
+            style={[
+              styles.googleButton,
+              isLoading && styles.googleButtonDisabled,
+              {
+                backgroundColor: '#fff',
+                borderColor: '#ddd',
+                borderWidth: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOpacity: 0.04,
+                shadowRadius: 2,
+                shadowOffset: { width: 0, height: 1 },
+              }
+            ]}
             onPress={handleGoogleLogin}
             disabled={isLoading}
           >
             {googleLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator color={colors.textPrimary} size="small" />
+                <ActivityIndicator color="#4285F4" size="small" />
                 <Text style={[styles.googleButtonText, styles.loadingText]}>
                   Connecting...
                 </Text>
               </View>
             ) : (
               <>
-                <Text style={styles.googleIcon}>🔍</Text>
-                <Text style={styles.googleButtonText}>Continue with Google</Text>
+                <Text style={{
+                  fontSize: 22,
+                  fontWeight: 'bold',
+                  color: '#4285F4',
+                  marginRight: 12,
+                  marginLeft: -4,
+                }}>G</Text>
+                <Text style={{
+                  color: '#222',
+                  fontSize: 16,
+                  fontWeight: '500',
+                }}>
+                  Continue with Google
+                </Text>
               </>
             )}
           </TouchableOpacity>
