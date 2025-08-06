@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import ApiService from '../services/api';
@@ -549,50 +550,52 @@ export default function QuickAddScreen({ navigation }) {
   );
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
-        style={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Quick Add</Text>
-          <Text style={styles.subtitle}>Add a transaction or reminder</Text>
-        </View>
+        <ScrollView 
+          style={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Quick Add</Text>
+            <Text style={styles.subtitle}>Add a transaction or reminder</Text>
+          </View>
 
-        {/* Tab Selector */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'transaction' && styles.activeTab]}
-            onPress={() => setActiveTab('transaction')}
-          >
-            <Text style={[
-              styles.tabText,
-              activeTab === 'transaction' && styles.activeTabText
-            ]}>
-              💰 Transaction
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'reminder' && styles.activeTab]}
-            onPress={() => setActiveTab('reminder')}
-          >
-            <Text style={[
-              styles.tabText,
-              activeTab === 'reminder' && styles.activeTabText
-            ]}>
-              🔔 Reminder
-            </Text>
-          </TouchableOpacity>
-        </View>
+          {/* Tab Selector */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'transaction' && styles.activeTab]}
+              onPress={() => setActiveTab('transaction')}
+            >
+              <Text style={[
+                styles.tabText,
+                activeTab === 'transaction' && styles.activeTabText
+              ]}>
+                💰 Transaction
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'reminder' && styles.activeTab]}
+              onPress={() => setActiveTab('reminder')}
+            >
+              <Text style={[
+                styles.tabText,
+                activeTab === 'reminder' && styles.activeTabText
+              ]}>
+                🔔 Reminder
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Form Content */}
-        {activeTab === 'transaction' ? renderTransactionForm() : renderReminderForm()}
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {/* Form Content */}
+          {activeTab === 'transaction' ? renderTransactionForm() : renderReminderForm()}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

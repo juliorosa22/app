@@ -12,6 +12,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -243,105 +244,107 @@ export default function LoginScreen({ navigation }) {
 };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.logoContainer}>
-          <Text style={styles.logo}>💰</Text>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to your Okan Assist account</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              placeholder="Enter your email"
-              placeholderTextColor={colors.textLight}
-              value={formData.email}
-              onChangeText={(value) => handleInputChange('email', value)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-            />
-            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.logoContainer}>
+            <Text style={styles.logo}>💰</Text>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to your Okan Assist account</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, errors.password && styles.inputError]}
-              placeholder="Enter your password"
-              placeholderTextColor={colors.textLight}
-              value={formData.password}
-              onChangeText={(value) => handleInputChange('password', value)}
-              secureTextEntry
-              editable={!isLoading}
-            />
-            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={[styles.input, errors.email && styles.inputError]}
+                placeholder="Enter your email"
+                placeholderTextColor={colors.textLight}
+                value={formData.email}
+                onChangeText={(value) => handleInputChange('email', value)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isLoading}
+              />
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={[styles.input, errors.password && styles.inputError]}
+                placeholder="Enter your password"
+                placeholderTextColor={colors.textLight}
+                value={formData.password}
+                onChangeText={(value) => handleInputChange('password', value)}
+                secureTextEntry
+                editable={!isLoading}
+              />
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color={colors.textOnPrimary} size="small" />
+                  <Text style={[styles.loginButtonText, styles.loadingText]}>
+                    Signing In...
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.loginButtonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
           </View>
 
           <TouchableOpacity
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-            onPress={handleLogin}
+            style={[styles.googleButton, isLoading && styles.googleButtonDisabled]}
+            onPress={handleGoogleLogin}
             disabled={isLoading}
           >
-            {loading ? (
+            {googleLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator color={colors.textOnPrimary} size="small" />
-                <Text style={[styles.loginButtonText, styles.loadingText]}>
-                  Signing In...
+                <ActivityIndicator color={colors.textPrimary} size="small" />
+                <Text style={[styles.googleButtonText, styles.loadingText]}>
+                  Connecting...
                 </Text>
               </View>
             ) : (
-              <Text style={styles.loginButtonText}>Sign In</Text>
+              <>
+                <Text style={styles.googleIcon}>🔍</Text>
+                <Text style={styles.googleButtonText}>Continue with Google</Text>
+              </>
             )}
           </TouchableOpacity>
-        </View>
 
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.googleButton, isLoading && styles.googleButtonDisabled]}
-          onPress={handleGoogleLogin}
-          disabled={isLoading}
-        >
-          {googleLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color={colors.textPrimary} size="small" />
-              <Text style={[styles.googleButtonText, styles.loadingText]}>
-                Connecting...
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.googleIcon}>🔍</Text>
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.registerContainer}>
-          <Text style={styles.registerText}>Don't have an account?</Text>
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('Register')}
-            disabled={isLoading}
-          >
-            <Text style={styles.registerLink}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <View style={styles.registerContainer}>
+            <Text style={styles.registerText}>Don't have an account?</Text>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('Register')}
+              disabled={isLoading}
+            >
+              <Text style={styles.registerLink}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

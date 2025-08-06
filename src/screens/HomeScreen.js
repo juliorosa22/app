@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -420,7 +421,7 @@ export default function HomeScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView 
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -512,6 +513,6 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

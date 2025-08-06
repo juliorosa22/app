@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Button } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import ApiService from '../services/api';
 import { MaterialIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
@@ -119,53 +120,45 @@ export default function TransactionsScreen({ navigation }) {
   });
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>💳 Transactions</Text>
-          <Text style={styles.subtitle}>
-            Manage, analyze, and filter your transactions with ease.
-          </Text>
-        </View>
-        {features.map((feature, idx) => (
-          <TouchableOpacity
-            key={idx}
-            style={styles.card}
-            activeOpacity={0.8}
-            onPress={feature.onPress}
-          >
-            <View style={styles.cardIcon}>{feature.icon}</View>
-            <Text style={styles.cardText}>{feature.label}</Text>
-          </TouchableOpacity>
-        ))}
-        {/* Switch View */}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', margin: 8 }}>
-          <Button title="Current Month" onPress={() => setViewMode('month')} />
-          <Button title="Custom Filter" onPress={() => setViewMode('custom')} />
-        </View>
-        {/* Filters for custom view */}
-        {viewMode === 'custom' && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', margin: 8 }}>
-            {/* Add date pickers, category dropdown, type toggle here */}
-            {/* For brevity, use TextInputs or Buttons */}
+    <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <View style={{ flex: 1 }}>
+        <ScrollView style={styles.container}>
+          <View style={styles.header}>
+            <Text style={styles.title}>💳 Transactions</Text>
+            <Text style={styles.subtitle}>
+              Manage, analyze, and filter your transactions with ease.
+            </Text>
           </View>
-        )}
-        {/* Transaction Cards */}
-        <ScrollView>
-          {transactions.map(tx => (
-            <TouchableOpacity
-              key={tx.id}
-              style={styles.transactionCard}
-              onPress={() => navigation.navigate('EditTransactionScreen', { transactionId: tx.id })}
-            >
-              <Text style={styles.amount}>{tx.amount} {tx.transaction_type === 'expense' ? '-' : '+'}</Text>
-              <Text style={styles.desc}>{tx.description}</Text>
-              <Text style={styles.cat}>{tx.category}</Text>
-              <Text style={styles.date}>{new Date(tx.date).toLocaleDateString()}</Text>
-            </TouchableOpacity>
-          ))}
+
+          {/* Switch View */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', margin: 8 }}>
+            <Button title="Current Month" onPress={() => setViewMode('month')} />
+            <Button title="Custom Filter" onPress={() => setViewMode('custom')} />
+          </View>
+          {/* Filters for custom view */}
+          {viewMode === 'custom' && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', margin: 8 }}>
+              {/* Add date pickers, category dropdown, type toggle here */}
+              {/* For brevity, use TextInputs or Buttons */}
+            </View>
+          )}
+          {/* Transaction Cards */}
+          <ScrollView>
+            {transactions.map(tx => (
+              <TouchableOpacity
+                key={tx.id}
+                style={styles.transactionCard}
+                onPress={() => navigation.navigate('EditTransactionScreen', { transactionId: tx.id })}
+              >
+                <Text style={styles.amount}>{tx.amount} {tx.transaction_type === 'expense' ? '-' : '+'}</Text>
+                <Text style={styles.desc}>{tx.description}</Text>
+                <Text style={styles.cat}>{tx.category}</Text>
+                <Text style={styles.date}>{new Date(tx.date).toLocaleDateString()}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </ScrollView>
-      </ScrollView>
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }

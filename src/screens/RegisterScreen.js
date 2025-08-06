@@ -10,6 +10,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -203,130 +204,132 @@ export default function RegisterScreen({ navigation }) {
   const currencies = ['USD', 'EUR', 'BRL', 'GBP', 'JPY'];
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView 
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView 
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.logoContainer}>
-          <Text style={styles.logo}>💰</Text>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join Okan Assist to manage your finances</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={[styles.input, errors.name && styles.inputError]}
-              placeholder="Enter your full name"
-              placeholderTextColor={colors.textLight}
-              value={formData.name}
-              onChangeText={(value) => handleInputChange('name', value)}
-              autoCapitalize="words"
-            />
-            {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+        <ScrollView 
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.logoContainer}>
+            <Text style={styles.logo}>💰</Text>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Join Okan Assist to manage your finances</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={[styles.input, errors.email && styles.inputError]}
-              placeholder="Enter your email"
-              placeholderTextColor={colors.textLight}
-              value={formData.email}
-              onChangeText={(value) => handleInputChange('email', value)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your phone number"
-              placeholderTextColor={colors.textLight}
-              value={formData.phone}
-              onChangeText={(value) => handleInputChange('phone', value)}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Default Currency</Text>
-            <View style={styles.currencyContainer}>
-              {currencies.map((currency) => (
-                <TouchableOpacity
-                  key={currency}
-                  style={[
-                    styles.currencyOption,
-                    formData.currency === currency && styles.currencyOptionSelected,
-                  ]}
-                  onPress={() => handleInputChange('currency', currency)}
-                >
-                  <Text
-                    style={[
-                      styles.currencyText,
-                      formData.currency === currency && styles.currencyTextSelected,
-                    ]}
-                  >
-                    {currency}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+          <View style={styles.form}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name</Text>
+              <TextInput
+                style={[styles.input, errors.name && styles.inputError]}
+                placeholder="Enter your full name"
+                placeholderTextColor={colors.textLight}
+                value={formData.name}
+                onChangeText={(value) => handleInputChange('name', value)}
+                autoCapitalize="words"
+              />
+              {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
             </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={[styles.input, errors.email && styles.inputError]}
+                placeholder="Enter your email"
+                placeholderTextColor={colors.textLight}
+                value={formData.email}
+                onChangeText={(value) => handleInputChange('email', value)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Phone (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your phone number"
+                placeholderTextColor={colors.textLight}
+                value={formData.phone}
+                onChangeText={(value) => handleInputChange('phone', value)}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Default Currency</Text>
+              <View style={styles.currencyContainer}>
+                {currencies.map((currency) => (
+                  <TouchableOpacity
+                    key={currency}
+                    style={[
+                      styles.currencyOption,
+                      formData.currency === currency && styles.currencyOptionSelected,
+                    ]}
+                    onPress={() => handleInputChange('currency', currency)}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyText,
+                        formData.currency === currency && styles.currencyTextSelected,
+                      ]}
+                    >
+                      {currency}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <TextInput
+                style={[styles.input, errors.password && styles.inputError]}
+                placeholder="Create a password"
+                placeholderTextColor={colors.textLight}
+                value={formData.password}
+                onChangeText={(value) => handleInputChange('password', value)}
+                secureTextEntry
+              />
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <TextInput
+                style={[styles.input, errors.confirmPassword && styles.inputError]}
+                placeholder="Confirm your password"
+                placeholderTextColor={colors.textLight}
+                value={formData.confirmPassword}
+                onChangeText={(value) => handleInputChange('confirmPassword', value)}
+                secureTextEntry
+              />
+              {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.registerButton, loading && styles.registerButtonDisabled]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              <Text style={styles.registerButtonText}>
+                {loading ? 'Creating Account...' : 'Create Account'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={[styles.input, errors.password && styles.inputError]}
-              placeholder="Create a password"
-              placeholderTextColor={colors.textLight}
-              value={formData.password}
-              onChangeText={(value) => handleInputChange('password', value)}
-              secureTextEntry
-            />
-            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>Already have an account?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.loginLink}>Sign In</Text>
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-              style={[styles.input, errors.confirmPassword && styles.inputError]}
-              placeholder="Confirm your password"
-              placeholderTextColor={colors.textLight}
-              value={formData.confirmPassword}
-              onChangeText={(value) => handleInputChange('confirmPassword', value)}
-              secureTextEntry
-            />
-            {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-          </View>
-
-          <TouchableOpacity
-            style={[styles.registerButton, loading && styles.registerButtonDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
-          >
-            <Text style={styles.registerButtonText}>
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.loginContainer}>
-          <Text style={styles.loginText}>Already have an account?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginLink}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

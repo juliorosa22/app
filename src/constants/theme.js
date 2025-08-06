@@ -159,11 +159,11 @@ export const theme = {
   
   // Icon configuration
   icons: {
-    home: { library: 'MaterialIcons', name: 'home', emoji: '🏠' },
-    transactions: { library: 'MaterialIcons', name: 'payments', emoji: '💳' },
-    reminders: { library: 'MaterialIcons', name: 'notifications', emoji: '🔔' },
-    quickAdd: { library: 'MaterialIcons', name: 'add-circle-outline', emoji: '➕' },
-    settings: { library: 'MaterialIcons', name: 'settings', emoji: '⚙️' },
+    home: { library: 'MaterialIcons', name: 'home'/*, emoji: '🏠' */},
+    transactions: { library: 'MaterialIcons', name: 'payments'/*, emoji: '💳' */},
+    reminders: { library: 'MaterialIcons', name: 'notifications'/*, emoji: '🔔'*/ },
+    quickAdd: { library: 'MaterialIcons', name: 'add-circle-outline'/*, emoji: '➕'*/ },
+    settings: { library: 'MaterialIcons', name: 'settings'/*, emoji: '⚙️'*/ },
     // Add more as needed
   },
 };

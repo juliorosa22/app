@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -58,7 +59,7 @@ export default function RemindersScreen() {
   });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>🔔 Reminders</Text>
         <Text style={styles.subtitle}>Manage your reminders</Text>
@@ -79,6 +80,6 @@ export default function RemindersScreen() {
           <Text style={styles.featureItem}>• Recurring reminders</Text>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

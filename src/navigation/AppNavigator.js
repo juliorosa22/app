@@ -6,6 +6,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { MaterialIcons, Feather, FontAwesome5 } from '@expo/vector-icons'; // Import needed icon libraries
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 
 // Screens
 import HomeScreen from '../screens/HomeScreen';
@@ -21,7 +23,7 @@ const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 // TabIcon now uses only 'name' as key
-function TabIcon({ name, color, size = 22 }) {
+function TabIcon({ name, color, size = 26 }) {
   const { icons } = useTheme();
   const icon = icons[name];
 
@@ -46,92 +48,101 @@ function TabIcon({ name, color, size = 22 }) {
 }
 
 // Floating Quick Add Button using TabIcon
-function FloatingQuickAdd({ navigation }) {
+function FloatingQuickAdd() {
+  const navigation = useNavigation();
   const { colors, spacing, shadows } = useTheme();
+  const insets = useSafeAreaInsets();
+
   return (
     <TouchableOpacity
       style={{
         position: 'absolute',
         alignSelf: 'center',
-        bottom: Platform.OS === 'ios' ? 32 : 24,
+        bottom: (insets.bottom || 0) + 24, // Add safe area inset to bottom
         zIndex: 10,
         backgroundColor: colors.primary,
         borderRadius: 32,
-        padding: 18,
+        padding: 5,
         ...shadows.lg,
-        elevation: 6,
+        elevation: 10,
       }}
       activeOpacity={0.85}
       onPress={() => navigation.navigate('QuickAddScreen')}
     >
-      <TabIcon name="quickAdd" color={colors.textOnPrimary} size={22} />
+      <TabIcon name="quickAdd" color={colors.textOnPrimary} size={24} />
     </TouchableOpacity>
   );
 }
 
 // Main Bottom Tab Navigator
+import { useNavigationState } from '@react-navigation/native';
+
 function MainTabNavigator() {
   const { colors, typography, spacing } = useTheme();
+  // Get the current route name from navigation state
+  const routeNames = global.navigationRef.current?.getCurrentRoute?.();
+  const isQuickAddOpen = routeNames?.name === 'QuickAddScreen';
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
             backgroundColor: colors.surface,
             borderTopColor: colors.border,
-            height: 64,
-            paddingBottom: spacing.sm,
+            height: 56, // Reduce height for Android
+            paddingBottom: spacing.xs,
             paddingTop: spacing.xs,
           },
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarLabelStyle: {
-            fontSize: typography.fontSize.sm,
-            fontWeight: typography.fontWeight.medium,
+            display: 'none', // Hide label text
           },
+          tabBarShowLabel: false, // Hide label text
         }}
       >
         <Tab.Screen
           name="Home"
           component={HomeScreen}
           options={{
-            title: 'Home',
-            tabBarLabel: 'Home',
-            tabBarIcon: ({ color }) => <TabIcon iconKey="home" color={color} />,
+            //title: 'Home',
+            //tabBarLabel: 'Home',
+            tabBarIcon: () => <TabIcon name="home" color="black" />,
           }}
         />
         <Tab.Screen
           name="Transactions"
           component={TransactionsScreen}
           options={{
-            title: 'Transactions',
-            tabBarLabel: 'Transactions',
-            tabBarIcon: ({ color }) => <TabIcon iconKey="transactions" color={color} />,
+            //title: 'Transactions',
+            //tabBarLabel: 'Transactions',
+            tabBarIcon: () => <TabIcon name="transactions" color="black" />,
           }}
         />
         <Tab.Screen
           name="Reminders"
           component={RemindersScreen}
           options={{
-            title: 'Reminders',
-            tabBarLabel: 'Reminders',
-            tabBarIcon: ({ color }) => <TabIcon iconKey="reminders" color={color} />,
+            //title: 'Reminders',
+            //tabBarLabel: 'Reminders',
+            tabBarIcon: () => <TabIcon name="reminders" color="black" />,
           }}
         />
         <Tab.Screen
           name="Settings"
           component={SettingsScreen}
           options={{
-            title: 'Settings',
-            tabBarLabel: 'Settings',
-            tabBarIcon: ({ color }) => <TabIcon iconKey="settings" color={color} />,
+            //title: 'Settings',
+            //tabBarLabel: 'Settings',
+            tabBarIcon: ({ color }) => <TabIcon name="settings" color={color} />,
           }}
         />
       </Tab.Navigator>
-      <FloatingQuickAdd navigation={global.navigationRef.current} />
-    </View>
+      {/* Hide button when QuickAddScreen is open */}
+      {!isQuickAddOpen && <FloatingQuickAdd navigation={global.navigationRef.current} />}
+    </SafeAreaView>
   );
 }
 
@@ -192,6 +203,14 @@ function AppStackNavigator() {
         name="EditTransaction"
         component={EditTransactionScreen}
         options={{ title: 'Edit Transaction' }}
+      />
+      <Stack.Screen
+        name="QuickAddScreen"
+        component={QuickAddScreen}
+        options={{
+          title: 'Add',
+          //presentation: 'modal', // Optional: show as modal
+        }}
       />
     </Stack.Navigator>
   );

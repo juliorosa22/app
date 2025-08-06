@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // Add this import
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -128,7 +129,7 @@ export default function SettingsScreen() {
   });
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView style={styles.scrollContainer}>
         <View style={styles.header}>
           <Text style={styles.title}>⚙️ Settings</Text>
@@ -222,6 +223,6 @@ export default function SettingsScreen() {
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }

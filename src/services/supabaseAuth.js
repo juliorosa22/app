@@ -13,7 +13,7 @@ class SupabaseAuthService {
       scheme: Constants.expoConfig?.scheme || 'okanassist',
       path: 'auth/callback'
     });
-    console.log('🔗 Supabase Auth Redirect URI:', this.redirectUri);
+    //console.log('🔗 Supabase Auth Redirect URI:', this.redirectUri);
   }
 
  async signInWithGoogle() {
@@ -36,7 +36,7 @@ class SupabaseAuthService {
       throw new Error('Failed to get OAuth URL');
     }
 
-    console.log('🔗 OAuth URL generated:', data.url);
+    //console.log('🔗 OAuth URL generated:', data.url);
     console.log('🔗 Opening OAuth URL...');
 
     // Simple WebBrowser call with lots of logging
@@ -46,25 +46,25 @@ class SupabaseAuthService {
     );
 
     // Log EVERYTHING about the result
-    console.log('📡 WebBrowser returned!');
-    console.log('📡 Result type:', result.type);
-    console.log('📡 Full result object:');
-    console.log(JSON.stringify(result, null, 2));
+    //console.log('📡 WebBrowser returned!');
+    //console.log('📡 Result type:', result.type);
+    //console.log('📡 Full result object:');
+    //console.log(JSON.stringify(result, null, 2));
 
     if (result.type === 'success') {
-      console.log('✅ WebBrowser success!');
-      console.log('🔗 Result URL:', result.url);
+      //console.log('✅ WebBrowser success!');
+      //console.log('🔗 Result URL:', result.url);
       
       // Try to extract tokens immediately
       const url = new URL(result.url);
-      console.log('🔍 URL search:', url.search);
-      console.log('🔍 URL hash:', url.hash);
+      //console.log('🔍 URL search:', url.search);
+      //console.log('🔍 URL hash:', url.hash);
       
       // Simple token extraction
       const accessToken = url.searchParams.get('access_token') || 
                          (url.hash.match(/access_token=([^&]+)/) || [])[1];
       
-      console.log('🔍 Access token found:', !!accessToken);
+      //console.log('🔍 Access token found:', !!accessToken);
       
       if (accessToken) {
         console.log('✅ Token found, setting session...');
@@ -120,18 +120,18 @@ class SupabaseAuthService {
 }
 async processOAuthCallback(callbackUrl) {
     try {
-      console.log('🔄 Processing OAuth callback...');
-      console.log('🔗 Processing URL:', callbackUrl);
+      //console.log('🔄 Processing OAuth callback...');
+      //console.log('🔗 Processing URL:', callbackUrl);
       
       // Parse the callback URL
       const url = new URL(callbackUrl);
       
       // Log all URL parts for debugging
-      console.log('🔍 URL Protocol:', url.protocol);
-      console.log('🔍 URL Host:', url.host);
-      console.log('🔍 URL Pathname:', url.pathname);
-      console.log('🔍 URL Search:', url.search);
-      console.log('🔍 URL Hash:', url.hash);
+      //console.log('🔍 URL Protocol:', url.protocol);
+      //console.log('🔍 URL Host:', url.host);
+      //console.log('🔍 URL Pathname:', url.pathname);
+      //console.log('🔍 URL Search:', url.search);
+      //console.log('🔍 URL Hash:', url.hash);
       
       // Extract tokens from both search params and hash fragment
       const accessToken = url.searchParams.get('access_token') || 
@@ -144,13 +144,6 @@ async processOAuthCallback(callbackUrl) {
                    this.extractFromFragment(callbackUrl, 'error');
       const errorDescription = url.searchParams.get('error_description') || 
                               this.extractFromFragment(callbackUrl, 'error_description');
-
-      console.log('🔍 Extracted tokens:', {
-        accessToken: accessToken ? `${accessToken.substring(0, 20)}...` : 'None',
-        refreshToken: refreshToken ? `${refreshToken.substring(0, 20)}...` : 'None',
-        error: error || 'None',
-        errorDescription: errorDescription || 'None'
-      });
 
       if (error) {
         throw new Error(`OAuth error: ${error} - ${errorDescription}`);
