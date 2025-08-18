@@ -5,134 +5,121 @@ const DataCacheContext = createContext();
 
 export const useDataCache = () => {
   const context = useContext(DataCacheContext);
-  if (!context) {
-    throw new Error('useDataCache must be used within a DataCacheProvider');
-  }
+  if (!context) throw new Error('useDataCache must be used within a DataCacheProvider');
   return context;
 };
 
 export const DataCacheProvider = ({ children }) => {
-  const [cache, setCache] = useState({
-    transactions: { data: [], lastFetched: null, isStale: true },
-    summary: { data: null, lastFetched: null, isStale: true },
-    reminders_30: { data: [], lastFetched: null, isStale: true }
-  });
+  const [transactions, setTransactions] = useState([]);
+  const [reminders, setReminders] = useState([]);
+  const [categories, setCategories] = useState({ expense: [], income: [] });
+  const [loading, setLoading] = useState(false);
 
-  // Cache duration in milliseconds (5 minutes)
-  const CACHE_DURATION = 5 * 60 * 1000;
+  // 1. Fetch all data on login
+  const initializeData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [txResult, remResult, catResult] = await Promise.all([
+        ApiService.getTransactions(365),
+        ApiService.getReminders(true, 1000),
+        ApiService.getCategories?.()
+      ]);
+      setTransactions(txResult.success ? txResult.transactions || [] : []);
+      setReminders(remResult.success ? remResult.reminders || [] : []);
+      setCategories(catResult?.success ? catResult.categories || { expense: [], income: [] } : { expense: [], income: [] });
+    } catch (e) {
+      setTransactions([]);
+      setReminders([]);
+      setCategories({ expense: [], income: [] });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const isCacheStale = (lastFetched) => {
-    if (!lastFetched) return true;
-    return Date.now() - lastFetched > CACHE_DURATION;
+  // 2. Local selectors for screens/views
+  const getTransactions = useCallback((filterFn = null) => {
+    return filterFn ? transactions.filter(filterFn) : transactions;
+  }, [transactions]);
+
+  const getReminders = useCallback((filterFn = null) => {
+    return filterFn ? reminders.filter(filterFn) : reminders;
+  }, [reminders]);
+
+  // 3. Mutations: update local cache, then remote
+  const addTransaction = async (tx) => {
+    setTransactions(prev => [tx, ...prev]);
+    await ApiService.createTransaction(tx);
+    // Optionally re-fetch or update with server response
   };
 
-  const getTransactions = useCallback(async (days = 30, transactionType = null, forceRefresh = false) => {
-    const cacheKey = `transactions_${days}_${transactionType || 'all'}`;
-    const cachedData = cache[cacheKey];
-
-    if (!forceRefresh && cachedData && !isCacheStale(cachedData.lastFetched)) {
-      return { success: true, ...cachedData.data, fromCache: true };
+  const updateTransaction = async (id, updateData) => {
+    const originalTransactions = transactions;
+    try {
+      // Optimistic update
+      setTransactions(prev => prev.map(tx => tx.id === id ? { ...tx, ...updateData } : tx));
+      const result = await ApiService.updateTransaction(id, updateData);
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Update failed');
+      }
+    } catch (error) {
+      // Rollback on failure
+      setTransactions(originalTransactions);
+      throw error;
     }
+  };
 
-    const result = await ApiService.getTransactions(days, transactionType);
-    if (result.success) {
-      setCache(prev => ({
-        ...prev,
-        [cacheKey]: {
-          data: result,
-          lastFetched: Date.now(),
-          isStale: false
-        }
-      }));
-    }
-    return result;
-  }, [cache]);
+  const deleteTransaction = async (id) => {
+    setTransactions(prev => prev.filter(tx => tx.id !== id));
+    await ApiService.deleteTransaction(id);
+  };
 
-  const getTransactionSummary = useCallback(async (days = 30, forceRefresh = false) => {
-    const cacheKey = `summary_${days}`;
-    const cachedData = cache[cacheKey];
+  const addReminder = async (rem) => {
+    setReminders(prev => [rem, ...prev]);
+    await ApiService.createReminder(rem);
+  };
 
-    if (!forceRefresh && cachedData && !isCacheStale(cachedData.lastFetched)) {
-      return { success: true, ...cachedData.data, fromCache: true };
-    }
+  const updateReminder = async (id, updateData) => {
+    setReminders(prev => prev.map(r => r.id === id ? { ...r, ...updateData } : r));
+    await ApiService.updateReminder(id, updateData);
+  };
 
-    const result = await ApiService.getTransactionSummary(days);
-    if (result.success) {
-      setCache(prev => ({
-        ...prev,
-        [cacheKey]: {
-          data: result,
-          lastFetched: Date.now(),
-          isStale: false
-        }
-      }));
-    }
-    return result;
-  }, [cache]);
+  const deleteReminder = async (id) => {
+    setReminders(prev => prev.filter(r => r.id !== id));
+    await ApiService.deleteReminder(id);
+  };
 
-  const getReminders = useCallback(async (days = 30, forceRefresh = false) => {
-    const cacheKey = `reminders_${days}`;
-    const cachedData = cache[cacheKey];
+  // Optionally: clear cache on logout
+  const clearCache = () => {
+    setTransactions([]);
+    setReminders([]);
+  };
 
-    if (!forceRefresh && cachedData && !isCacheStale(cachedData.lastFetched)) {
-      return { success: true, reminders: cachedData.data, fromCache: true };
-    }
-
-    const result = await ApiService.getReminders(days);
-    if (result.success) {
-      setCache(prev => ({
-        ...prev,
-        [cacheKey]: {
-          data: result.reminders,
-          lastFetched: Date.now(),
-          isStale: false
-        }
-      }));
-    }
-    return result;
-  }, [cache]);
-
-  const invalidateCache = useCallback((keys = null) => {
-    if (keys) {
-      setCache(prev => {
-        const newCache = { ...prev };
-        keys.forEach(key => {
-          if (newCache[key]) {
-            newCache[key].isStale = true;
-          }
-        });
-        return newCache;
-      });
-    } else {
-      // Invalidate all cache
-      setCache(prev => {
-        const newCache = {};
-        Object.keys(prev).forEach(key => {
-          newCache[key] = { ...prev[key], isStale: true };
-        });
-        return newCache;
-      });
-    }
-  }, []);
-
-  const clearCache = useCallback(() => {
-    setCache({
-      transactions: { data: [], lastFetched: null, isStale: true },
-      summary: { data: null, lastFetched: null, isStale: true },
-      reminders_30: { data: [], lastFetched: null, isStale: true }
-    });
-  }, []);
+  const invalidateCache = () => {
+    setTransactions([]);
+    setReminders([]);
+  };
 
   return (
     <DataCacheContext.Provider value={{
+      loading,
+      initializeData,
       getTransactions,
-      getTransactionSummary,
       getReminders,
-      invalidateCache,
+      addTransaction,
+      updateTransaction,
+      deleteTransaction,
+      addReminder,
+      updateReminder,
+      deleteReminder,
       clearCache,
-      cache
+      invalidateCache,
+      transactions,
+      reminders,
+      categories,
     }}>
       {children}
     </DataCacheContext.Provider>
   );
 };
+

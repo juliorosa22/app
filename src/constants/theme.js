@@ -166,6 +166,7 @@ export const theme = {
     settings: { library: 'MaterialIcons', name: 'settings'/*, emoji: '⚙️'*/ },
     moneyon: { library: 'MaterialIcons', name: 'attach-money'/*, emoji: '💰'*/ },
     moneyoff: { library: 'MaterialIcons', name: 'money-off'/*, emoji: '💸'*/ },
+    telegram: { library: 'MaterialIcons', name: 'telegram'/*, emoji: '📱'*/ },
     // Add more as needed
   },
 };
@@ -193,3 +194,5 @@ export const darkTheme = {
 export const getSpacing = (size) => theme.spacing[size] || size;
 export const getColor = (colorName) => theme.colors[colorName] || colorName;
 export const getFontSize = (size) => theme.typography.fontSize[size] || size;
+
+//console.log('[theme.js] Theme module loaded');

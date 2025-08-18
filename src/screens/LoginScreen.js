@@ -11,15 +11,21 @@ import {
   ScrollView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useDataCache } from '../context/DataCacheContext';
+import { useLanguage } from '../context/LanguageContext';
 import GoogleIcon from '../images/google-icon-logo-svgrepo-com.svg';
+import LottieView from 'lottie-react-native';
 
 export default function LoginScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
   const { login, loginWithGoogle, loading } = useAuth();
+  const { initializeData } = useDataCache();
+  const { t } = useLanguage();
   
   const [formData, setFormData] = useState({
     email: '',
@@ -37,53 +43,44 @@ export default function LoginScreen({ navigation }) {
 
   const validateForm = () => {
     const newErrors = {};
-    
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('email_required');
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = t('email_invalid');
     }
-    
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = t('password_required');
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = t('password_min_length');
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleLogin = async () => {
     if (!validateForm()) return;
-    
     const result = await login(formData.email, formData.password);
-    
     if (!result.success) {
-      Alert.alert('Login Failed', result.message);
+      Alert.alert(t('login_failed'), result.message);
     } else {
-      Alert.alert('Success', 'Login successful!');
-      // Optionally navigate or reset form here
-      // navigation.navigate('Home'); // If you want to navigate manually
+      await initializeData();
+      Alert.alert(t('success'), t('login_successful'));
     }
-    // Success is handled by auth context navigation
   };
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    
     try {
       const result = await loginWithGoogle();
-      
       if (result.success) {
-        // Success is handled by AuthContext (navigation, etc.)
+        await initializeData();
         console.log('✅ Login successful via AuthContext');
       } else {
-        Alert.alert('Google Login Failed', result.message);
+        Alert.alert(t('google_login_failed'), result.message);
       }
     } catch (error) {
       console.error('Google login error:', error);
-      Alert.alert('Error', 'Google login failed. Please try again.');
+      Alert.alert(t('error'), t('google_login_error'));
     } finally {
       setGoogleLoading(false);
     }
@@ -103,9 +100,11 @@ export default function LoginScreen({ navigation }) {
       alignItems: 'center',
       marginBottom: spacing.xxxl,
     },
-    logo: {
-      fontSize: typography.fontSize['4xl'],
+    logoImage: {
+      width: 80,
+      height: 80,
       marginBottom: spacing.sm,
+      borderRadius: 20, // optional, for rounded corners
     },
     title: {
       fontSize: typography.fontSize['2xl'],
@@ -255,17 +254,21 @@ export default function LoginScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.logoContainer}>
-            <Text style={styles.logo}>💰</Text>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Sign in to your Okan Assist account</Text>
+            <Image
+              source={require('../images/personal_tracker.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.title}>{t('welcome_back')}</Text>
+            <Text style={styles.subtitle}>{t('login_subtitle')}</Text>
           </View>
 
           <View style={styles.form}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>{t('email_label')}</Text>
               <TextInput
                 style={[styles.input, errors.email && styles.inputError]}
-                placeholder="Enter your email"
+                placeholder={t('email_placeholder')}
                 placeholderTextColor={colors.textLight}
                 value={formData.email}
                 onChangeText={(value) => handleInputChange('email', value)}
@@ -278,10 +281,10 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>{t('password_label')}</Text>
               <TextInput
                 style={[styles.input, errors.password && styles.inputError]}
-                placeholder="Enter your password"
+                placeholder={t('password_placeholder')}
                 placeholderTextColor={colors.textLight}
                 value={formData.password}
                 onChangeText={(value) => handleInputChange('password', value)}
@@ -298,20 +301,35 @@ export default function LoginScreen({ navigation }) {
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator color={colors.textOnPrimary} size="small" />
+                  <LottieView
+                    source={require('../images/loading_okan.json')}
+                    autoPlay
+                    loop
+                    style={{ width: 36, height: 36, marginRight: 8 }}
+                  />
                   <Text style={[styles.loginButtonText, styles.loadingText]}>
-                    Signing In...
+                    {t('signing_in')}
                   </Text>
                 </View>
               ) : (
-                <Text style={styles.loginButtonText}>Sign In</Text>
+                <Text style={styles.loginButtonText}>{t('sign_in')}</Text>
               )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.registerContainer}>
+            <Text style={styles.registerText}>{t('dont_have_account')}</Text>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('Register')}
+              disabled={isLoading}
+            >
+              <Text style={styles.registerLink}>{t('sign_up')}</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={styles.dividerText}>{t('or')}</Text>
             <View style={styles.dividerLine} />
           </View>
 
@@ -339,7 +357,7 @@ export default function LoginScreen({ navigation }) {
               <View style={styles.loadingContainer}>
                 <ActivityIndicator color="#4285F4" size="small" />
                 <Text style={[styles.googleButtonText, styles.loadingText]}>
-                  Connecting...
+                  {t('connecting')}
                 </Text>
               </View>
             ) : (
@@ -356,21 +374,11 @@ export default function LoginScreen({ navigation }) {
                   fontSize: 16,
                   fontWeight: '500',
                 }}>
-                  Continue with Google
+                  {t('continue_with_google')}
                 </Text>
               </>
             )}
           </TouchableOpacity>
-
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account?</Text>
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('Register')}
-              disabled={isLoading}
-            >
-              <Text style={styles.registerLink}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

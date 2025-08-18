@@ -9,15 +9,12 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { PieChart } from 'react-native-chart-kit';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Platform, Dimensions } from 'react-native';
-import TelegramBotHeaderButton from '../components/TelegramBotHeaderButton';
-import { useLanguage } from '../context/LanguageContext';
 
 export default function TransactionsScreen({ navigation }) {
   console.log('[TransactionsScreen] Rendered');
   const { colors, spacing, typography } = useTheme();
   const { getTransactions, invalidateCache, initializeData } = useDataCache();
   const { user } = useAuth();
-  const { t } = useLanguage();
   const allTransactions = getTransactions();
   console.log('[TransactionsScreen] user:', user, 'transactions:', allTransactions.length);
 
@@ -93,9 +90,13 @@ export default function TransactionsScreen({ navigation }) {
   // View Selector
   const TransactionViewSelector = () => (
     <View style={{ marginBottom: spacing.md }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 0 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 0 }}
+      >
         <TouchableOpacity
-          key="month"
+          key="month" // ADD THIS
           style={[
             styles.viewButton,
             { borderColor: colors.primary, backgroundColor: viewMode === 'month' ? colors.primary : colors.surface },
@@ -108,10 +109,10 @@ export default function TransactionsScreen({ navigation }) {
           <Text style={[
             styles.viewButtonText,
             { color: viewMode === 'month' ? colors.textOnPrimary : colors.primary, marginLeft: 6, fontWeight: 'bold' }
-          ]}>{t('last_month')}</Text>
+          ]}>Last Month</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          key="dashboard"
+          key="dashboard" // ADD THIS
           style={[
             styles.viewButton,
             { borderColor: colors.primary, backgroundColor: viewMode === 'dashboard' ? colors.primary : colors.surface },
@@ -124,10 +125,10 @@ export default function TransactionsScreen({ navigation }) {
           <Text style={[
             styles.viewButtonText,
             { color: viewMode === 'dashboard' ? colors.textOnPrimary : colors.primary, marginLeft: 6, fontWeight: 'bold' }
-          ]}>{t('dashboard')}</Text>
+          ]}>Dashboard</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          key="period"
+          key="period" // ADD THIS
           style={[
             styles.viewButton,
             { borderColor: colors.primary, backgroundColor: viewMode === 'period' ? colors.primary : colors.surface },
@@ -140,7 +141,7 @@ export default function TransactionsScreen({ navigation }) {
           <Text style={[
             styles.viewButtonText,
             { color: viewMode === 'period' ? colors.textOnPrimary : colors.primary, marginLeft: 6, fontWeight: 'bold' }
-          ]}>{t('period')}</Text>
+          ]}>Period</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -176,10 +177,10 @@ export default function TransactionsScreen({ navigation }) {
     return (
       <View style={{ marginBottom: spacing.lg }}>
         <Text style={{ fontSize: typography.fontSize.lg, fontWeight: 'bold', color: colors.primary, marginBottom: spacing.md }}>
-          {t('overview_last_30_days')}
+          Overview (Last 30 Days)
         </Text>
-        
-        <Text style={{ fontWeight: 'bold', marginBottom: spacing.sm }}>{t('expenses_by_category')}</Text>
+        {/* Expenses Pie Chart */}
+        <Text style={{ fontWeight: 'bold', marginBottom: spacing.sm }}>Expenses by Category</Text>
         {expenseCategories.length > 0 ? (
           <PieChart
             data={pieData.map(d => ({
@@ -202,13 +203,13 @@ export default function TransactionsScreen({ navigation }) {
           />
         ) : (
           <Text style={{ color: colors.textSecondary, fontStyle: 'italic', marginBottom: spacing.md }}>
-            {t('no_expenses_to_display')}
+            No expenses to display.
           </Text>
         )}
 
-       
+        {/* Income vs Expenses Horizontal Bar */}
         <Text style={{ fontWeight: 'bold', marginTop: spacing.lg, marginBottom: spacing.sm }}>
-          {t('income_vs_expenses_balance')}
+          Income vs Expenses Balance
         </Text>
         <View style={{
           flexDirection: 'row',
@@ -217,7 +218,7 @@ export default function TransactionsScreen({ navigation }) {
           width: '100%',
           marginBottom: spacing.md,
         }}>
-          
+          {/* Income Bar */}
           <View style={{
             flex: incomeRatio,
             backgroundColor: '#43a047', // green
@@ -232,7 +233,7 @@ export default function TransactionsScreen({ navigation }) {
               {totalIncome.toFixed(2)}
             </Text>
           </View>
-          
+          {/* Expenses Bar */}
           <View style={{
             flex: expenseRatio,
             backgroundColor: '#e53935', // red
@@ -249,15 +250,14 @@ export default function TransactionsScreen({ navigation }) {
           </View>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 4 }}>
-          <Text style={{ color: '#43a047', fontWeight: 'bold' }}>{t('income')}</Text>
-          <Text style={{ color: '#e53935', fontWeight: 'bold' }}>{t('expenses')}</Text>
+          <Text style={{ color: '#43a047', fontWeight: 'bold' }}>Income</Text>
+          <Text style={{ color: '#e53935', fontWeight: 'bold' }}>Expenses</Text>
         </View>
       </View>
     );
   };
 
   // Period View
-  
   const PeriodView = () => (
     <View style={{
       marginBottom: spacing.lg,
@@ -271,9 +271,9 @@ export default function TransactionsScreen({ navigation }) {
         color: colors.textPrimary,
         marginBottom: spacing.sm,
       }}>
-        {t('select_period')}
+        Select Period
       </Text>
-      
+      {/* Start Date Picker */}
       <TouchableOpacity
         onPress={() => setStartPickerVisible(true)}
         style={{
@@ -293,7 +293,7 @@ export default function TransactionsScreen({ navigation }) {
         <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
           {periodStartDate
             ? new Date(periodStartDate).toLocaleDateString()
-            : t('select_start_date')}
+            : 'Select start date'}
         </Text>
       </TouchableOpacity>
       <DateTimePickerModal
@@ -307,7 +307,7 @@ export default function TransactionsScreen({ navigation }) {
         display={Platform.OS === 'android' ? 'spinner' : 'default'}
       />
 
-      
+      {/* End Date Picker */}
       <TouchableOpacity
         onPress={() => setEndPickerVisible(true)}
         style={{
@@ -327,7 +327,7 @@ export default function TransactionsScreen({ navigation }) {
         <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
           {periodEndDate
             ? new Date(periodEndDate).toLocaleDateString()
-            : t('select_end_date')}
+            : 'Select end date'}
         </Text>
       </TouchableOpacity>
       <DateTimePickerModal
@@ -343,6 +343,23 @@ export default function TransactionsScreen({ navigation }) {
     </View>
   );
 
+  // Loading state
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={{
+            marginTop: spacing.md,
+            fontSize: typography.fontSize.base,
+            color: colors.textSecondary
+          }}>
+            Loading transactions...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -356,20 +373,8 @@ export default function TransactionsScreen({ navigation }) {
   // Choose which transactions to show
   const shownTx = viewMode === 'month' ? lastMonthTx : periodTx;
 
-  // Update transaction count text
-  const transactionCountText = t('showing_transactions').replace('{count}', shownTx.length);
-
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-     {/* Absolute Telegram button */}
-           <View style={{
-             position: 'absolute',
-             top: 40,
-             right: 5,
-             zIndex: 10,
-           }}>
-             <TelegramBotHeaderButton />
-           </View>
       <View style={{ flex: 1 }}>
         <ScrollView
           style={{ flex: 1, padding: spacing.md }}
@@ -383,7 +388,6 @@ export default function TransactionsScreen({ navigation }) {
             />
           }
         >
-          
           <View style={{ marginBottom: 12 }}>
             <Text style={{
               fontSize: typography.fontSize['2xl'],
@@ -391,24 +395,28 @@ export default function TransactionsScreen({ navigation }) {
               color: colors.primary,
               marginBottom: 4, // Matches RegisterScreen title marginBottom
             }}>
-              {t('transactions_title')}
+              💳 Transactions
             </Text>
           </View>
 
-           <TransactionViewSelector /> 
+          <TransactionViewSelector />
 
           {viewMode === 'dashboard' && <DashboardView />}
           {viewMode === 'period' && <PeriodView />}
+
+          {/* Transaction Count */}
           {viewMode !== 'dashboard' && (
             <View style={{ marginBottom: spacing.md, alignItems: 'center' }}>
               <Text style={{
                 fontSize: typography.fontSize.sm,
                 color: colors.textSecondary,
               }}>
-                {transactionCountText}
+                Showing {shownTx.length} transaction{shownTx.length !== 1 ? 's' : ''}
               </Text>
             </View>
           )}
+
+          {/* Transaction Cards */}
           {viewMode !== 'dashboard' && (
             shownTx.length > 0 ? (
               shownTx.map(tx => (
@@ -431,12 +439,11 @@ export default function TransactionsScreen({ navigation }) {
                   textAlign: 'center',
                   fontStyle: 'italic',
                 }}>
-                  {t('no_transactions_found')}
+                  No transactions found
                 </Text>
               </View>
             )
           )}
-          
         </ScrollView>
       </View>
     </SafeAreaView>

@@ -1,8 +1,17 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { formatValue } from 'react-currency-input-field';
+import { getCurrencyConfig } from '../utils/currencyHelper';
 
-export default function TransactionCard({ transaction, onPress }) {
+export default function TransactionCard({ transaction, onPress, currency = 'USD' }) {
+  const currencyConfig = getCurrencyConfig(currency);
+  
+  const formattedAmount = formatValue({
+    value: String(transaction.amount || 0), // Convert to string
+    ...currencyConfig,
+  });
+
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(transaction)}>
       <View style={styles.row}>
@@ -22,7 +31,7 @@ export default function TransactionCard({ transaction, onPress }) {
             { color: transaction.transaction_type === 'expense' ? 'red' : 'green' }
           ]}>
             {transaction.transaction_type === 'expense' ? '-' : '+'}
-            {parseFloat(transaction.amount).toFixed(2)}
+            {formattedAmount}
           </Text>
           <Text style={styles.date}>
             {new Date(transaction.date).toLocaleDateString()}

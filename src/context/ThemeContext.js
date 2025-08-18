@@ -8,7 +8,9 @@ const ThemeContext = createContext();
 // Custom hook to use theme
 export const useTheme = () => {
   const context = useContext(ThemeContext);
+  //console.log('[ThemeContext] useTheme called. Context:', context);
   if (!context) {
+    //console.error('[ThemeContext] useTheme: context is undefined!');
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
@@ -16,6 +18,7 @@ export const useTheme = () => {
 
 // Theme Provider Component
 export const ThemeProvider = ({ children }) => {
+  //console.log('[ThemeContext] ThemeProvider rendered');
   const [isDarkMode, setIsDarkMode] = useState(false);
   
   // Get current theme based on mode

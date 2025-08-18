@@ -13,10 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function RegisterScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
   const { register, loading } = useAuth();
+  const { t } = useLanguage();
   
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +27,8 @@ export default function RegisterScreen({ navigation }) {
     password: '',
     confirmPassword: '',
     currency: 'USD',
+    language: 'en',
+    timezone: 'UTC',
   });
   const [errors, setErrors] = useState({});
 
@@ -38,45 +42,38 @@ export default function RegisterScreen({ navigation }) {
 
   const validateForm = () => {
     const newErrors = {};
-    
     if (!formData.name.trim()) {
-      newErrors.name = 'Name is required';
+      newErrors.name = t('name_required');
     } else if (formData.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
+      newErrors.name = t('name_min_length');
     }
-    
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('email_required');
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = t('email_invalid');
     }
-    
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = t('password_required');
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      newErrors.password = t('password_min_length');
     }
-    
     if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
+      newErrors.confirmPassword = t('confirm_password_required');
     } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
+      newErrors.confirmPassword = t('passwords_do_not_match');
     }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleRegister = async () => {
     if (!validateForm()) return;
-    
+    // Pass currency, language, timezone to backend
     const result = await register(formData);
-    
     if (result.success) {
-      Alert.alert('Success', result.message);
-      // Navigation is handled by auth context
+      Alert.alert(t('success'), result.message);
     } else {
-      Alert.alert('Registration Failed', result.message);
+      Alert.alert(t('registration_failed'), result.message);
     }
   };
 
@@ -201,7 +198,7 @@ export default function RegisterScreen({ navigation }) {
     },
   });
 
-  const currencies = ['USD', 'EUR', 'BRL', 'GBP', 'JPY'];
+  const currencies = ['USD', 'EUR', 'BRL'];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -215,16 +212,16 @@ export default function RegisterScreen({ navigation }) {
         >
           <View style={styles.logoContainer}>
             <Text style={styles.logo}>💰</Text>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join Okan Assist to manage your finances</Text>
+            <Text style={styles.title}>{t('create_account')}</Text>
+            <Text style={styles.subtitle}>{t('register_subtitle')}</Text>
           </View>
 
           <View style={styles.form}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name</Text>
+              <Text style={styles.label}>{t('full_name_label')}</Text>
               <TextInput
                 style={[styles.input, errors.name && styles.inputError]}
-                placeholder="Enter your full name"
+                placeholder={t('full_name_placeholder')}
                 placeholderTextColor={colors.textLight}
                 value={formData.name}
                 onChangeText={(value) => handleInputChange('name', value)}
@@ -234,10 +231,10 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>{t('email_label')}</Text>
               <TextInput
                 style={[styles.input, errors.email && styles.inputError]}
-                placeholder="Enter your email"
+                placeholder={t('email_placeholder')}
                 placeholderTextColor={colors.textLight}
                 value={formData.email}
                 onChangeText={(value) => handleInputChange('email', value)}
@@ -249,10 +246,10 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone (Optional)</Text>
+              <Text style={styles.label}>{t('phone_label')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter your phone number"
+                placeholder={t('phone_placeholder')}
                 placeholderTextColor={colors.textLight}
                 value={formData.phone}
                 onChangeText={(value) => handleInputChange('phone', value)}
@@ -261,7 +258,7 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Default Currency</Text>
+              <Text style={styles.label}>{t('default_currency_label')}</Text>
               <View style={styles.currencyContainer}>
                 {currencies.map((currency) => (
                   <TouchableOpacity
@@ -286,10 +283,10 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password</Text>
+              <Text style={styles.label}>{t('password_label')}</Text>
               <TextInput
                 style={[styles.input, errors.password && styles.inputError]}
-                placeholder="Create a password"
+                placeholder={t('password_placeholder')}
                 placeholderTextColor={colors.textLight}
                 value={formData.password}
                 onChangeText={(value) => handleInputChange('password', value)}
@@ -299,10 +296,10 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Confirm Password</Text>
+              <Text style={styles.label}>{t('confirm_password_label')}</Text>
               <TextInput
                 style={[styles.input, errors.confirmPassword && styles.inputError]}
-                placeholder="Confirm your password"
+                placeholder={t('confirm_password_placeholder')}
                 placeholderTextColor={colors.textLight}
                 value={formData.confirmPassword}
                 onChangeText={(value) => handleInputChange('confirmPassword', value)}
@@ -311,21 +308,45 @@ export default function RegisterScreen({ navigation }) {
               {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Timezone</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. America/Sao_Paulo"
+                value={formData.timezone}
+                onChangeText={(value) => handleInputChange('timezone', value)}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Language</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity onPress={() => handleInputChange('language', 'en')}>
+                  <Text>English</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleInputChange('language', 'pt')}>
+                  <Text>Português</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleInputChange('language', 'es')}>
+                  <Text>Español</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <TouchableOpacity
               style={[styles.registerButton, loading && styles.registerButtonDisabled]}
               onPress={handleRegister}
               disabled={loading}
             >
               <Text style={styles.registerButtonText}>
-                {loading ? 'Creating Account...' : 'Create Account'}
+                {loading ? t('registering') : t('register_button')}
               </Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>Already have an account?</Text>
+            <Text style={styles.loginText}>{t('already_have_account')}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginLink}>Sign In</Text>
+              <Text style={styles.loginLink}>{t('sign_in')}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

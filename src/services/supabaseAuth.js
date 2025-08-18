@@ -2,25 +2,42 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import Constants from 'expo-constants';
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
+import 'react-native-url-polyfill/auto';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 'https://nprskndftygvxeldrthw.supabase.co';
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabasePublishableKey || 'your-anon-key';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});
+
 class SupabaseAuthService {
   constructor() {
-    //const scheme = Constants.expoConfig?.scheme || 'okanassist';
-    this.redirectUri = AuthSession.makeRedirectUri({ 
-      scheme: Constants.expoConfig?.scheme || 'okanassist',
-      path: 'auth/callback'
-    });
-    //console.log('🔗 Supabase Auth Redirect URI:', this.redirectUri);
+    if (Platform.OS === 'web') {
+      // Use the current web origin for web
+      this.redirectUri = window.location.origin + '/auth/callback';
+    } else {
+      // Use AuthSession for native
+      this.redirectUri = AuthSession.makeRedirectUri({
+        scheme: Constants.expoConfig?.scheme || 'okanassist',
+        path: 'auth/callback'
+      });
+    }
+    console.log('🔗 Supabase Auth Redirect URI:', this.redirectUri);
   }
 
  async signInWithGoogle() {
   try {
     console.log('🚀 Starting Supabase Google OAuth...');
 
-    // Get OAuth URL
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -36,10 +53,13 @@ class SupabaseAuthService {
       throw new Error('Failed to get OAuth URL');
     }
 
-    //console.log('🔗 OAuth URL generated:', data.url);
-    console.log('🔗 Opening OAuth URL...');
+    if (Platform.OS === 'web') {
+      // On web, redirect the browser
+      window.location.href = data.url;
+      return;
+    }
 
-    // Simple WebBrowser call with lots of logging
+    // Native: Use WebBrowser
     const result = await WebBrowser.openAuthSessionAsync(
       data.url,
       this.redirectUri
@@ -52,8 +72,8 @@ class SupabaseAuthService {
     //console.log(JSON.stringify(result, null, 2));
 
     if (result.type === 'success') {
-      //console.log('✅ WebBrowser success!');
-      //console.log('🔗 Result URL:', result.url);
+      console.log('✅ WebBrowser success!');
+      console.log('🔗 Result URL:', result.url);
       
       // Try to extract tokens immediately
       const url = new URL(result.url);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,6 @@ import {
   Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import UserDebugInfo from '../components/UserDebugInfo';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -22,23 +21,20 @@ import { useDataCache } from '../context/DataCacheContext';
 //import LottieView from 'lottie-react-native';
 import { formatValue } from 'react-currency-input-field';
 import { getCurrencyConfig } from '../utils/currencyHelper';
-import TelegramBotHeaderButton from '../components/TelegramBotHeaderButton';
-import { useLanguage } from '../context/LanguageContext';
 
 export default function HomeScreen({ navigation }) {
-  //console.log('[HomeScreen] Rendered');
+  console.log('[HomeScreen] Rendered');
   const { colors, spacing, typography, shadows } = useTheme();
   const { user } = useAuth();
   const { getTransactions, getReminders, invalidateCache, initializeData } = useDataCache();
-  const { t } = useLanguage();
 
   // Defensive: If any context is missing, show loading after all hooks
   if (!colors || !user || !getTransactions || !getReminders) {
-    //console.error('[HomeScreen] Missing context:', { colors, user, getTransactions, getReminders });
+    console.error('[HomeScreen] Missing context:', { colors, user, getTransactions, getReminders });
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />
-        <Text>{t('loading')}</Text>
+        <Text>Loading...</Text>
       </SafeAreaView>
     );
   }
@@ -151,7 +147,7 @@ export default function HomeScreen({ navigation }) {
   const renderEmptyState = (type) => (
     <View style={styles.emptyState}>
       <Text style={styles.emptyText}>
-        {type === 'transactions' ? t('no_recent_transactions') : t('no_upcoming_reminders')}
+        {type === 'transactions' ? 'No recent transactions' : 'No upcoming reminders'}
       </Text>
     </View>
   );
@@ -165,7 +161,6 @@ export default function HomeScreen({ navigation }) {
     const url = `https://t.me/${telegramBotUsername}?start=${user.id}`;
     Linking.openURL(url);
   };
-
 
   const styles = StyleSheet.create({
     container: {
@@ -336,16 +331,6 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Absolute Telegram button */}
-      <View style={{
-        position: 'absolute',
-        top: 40,
-        right: 5,
-        zIndex: 10,
-      }}>
-        <TelegramBotHeaderButton />
-      </View>
-
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -360,10 +345,10 @@ export default function HomeScreen({ navigation }) {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.welcomeText}>{t('hello')}</Text>
-          <Text style={styles.nameText}>{user?.name || t('user')}</Text>
+          <Text style={styles.welcomeText}>Hello,</Text>
+          <Text style={styles.nameText}>{user?.name || 'User'}</Text>
         </View>
-        {/*<UserDebugInfo />*/}
+
         {/* Quick Stats */}
         <View style={styles.quickStats}>
           <View style={styles.statCard}>
@@ -373,31 +358,31 @@ export default function HomeScreen({ navigation }) {
             ]}>
               {formatCurrency(summary.net_income || 0, user?.currency || 'USD')}
             </Text>
-            <Text style={styles.statLabel}>{t('net_this_month')}</Text>
+            <Text style={styles.statLabel}>Net This Month</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statAmount}>
               {pendingRemindersCount}
             </Text>
-            <Text style={styles.statLabel}>{t('pending_tasks')}</Text>
+            <Text style={styles.statLabel}>Pending Tasks</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statAmount}>
               {(summary.expense_count || 0) + (summary.income_count || 0)}
             </Text>
-            <Text style={styles.statLabel}>{t('transactions')}</Text>
+            <Text style={styles.statLabel}>Transactions</Text>
           </View>
         </View>
 
         {/* Recent Transactions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('recent_transactions')}</Text>
+            <Text style={styles.sectionTitle}>💰 Recent Transactions</Text>
             <TouchableOpacity
               style={styles.seeAllButton}
               onPress={() => navigation.navigate('Transactions')}
             >
-              <Text style={styles.seeAllText}>{t('see_all')}</Text>
+              <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
 
@@ -416,12 +401,12 @@ export default function HomeScreen({ navigation }) {
         {/* Upcoming Reminders */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('upcoming_reminders')}</Text>
+            <Text style={styles.sectionTitle}>🔔 Upcoming Reminders</Text>
             <TouchableOpacity
               style={styles.seeAllButton}
               onPress={() => navigation.navigate('Reminders')}
             >
-              <Text style={styles.seeAllText}>{t('see_all')}</Text>
+              <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
 

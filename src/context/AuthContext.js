@@ -2,56 +2,81 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SupabaseAuthService from '../services/supabaseAuth';
+import ApiService from '../services/api'; // Import ApiService
 
 const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+  //console.log('[AuthContext] useAuth called. Context:', context);
   if (!context) {
+    //console.error('[AuthContext] useAuth: context is undefined!');
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
 export const AuthProvider = ({ children }) => {
+  //console.log('[AuthContext] AuthProvider rendered');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [session, setSession] = useState(null);
 
-useEffect(() => {
-  console.log('🔧 AuthContext initializing...');
-  
-  // Check initial auth state
-  checkAuthState();
-
-  // Listen to auth changes with more detailed logging
-  const { data: { subscription } } = SupabaseAuthService.onAuthStateChange(
-    async (event, session) => {
-      console.log('🔄 Auth event received:', event);
-      console.log('👤 Session user:', session?.user?.email || 'No user');
-      console.log('🔑 Session valid:', !!session?.access_token);
-      
-      if (event === 'SIGNED_IN' && session) {
-        console.log('✅ Processing SIGNED_IN event');
-        await handleSignIn(session);
-      } else if (event === 'SIGNED_OUT') {
-        console.log('✅ Processing SIGNED_OUT event');
-        await handleSignOut();
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-        console.log('✅ Processing TOKEN_REFRESHED event');
-        await updateSession(session);
-      } else {
-        console.log(`ℹ️ Ignoring auth event: ${event}`);
+  // --- Handle Supabase OAuth callback on web ---
+  useEffect(() => {
+    async function handleOAuthCallback() {
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname === '/auth/callback'
+      ) {
+        try {
+          await SupabaseAuthService.processOAuthCallback(window.location.href);
+          // Redirect to home after processing
+          window.location.replace('/');
+        } catch (e) {
+          // Optionally handle error
+          window.location.replace('/'); // Always redirect to home
+        }
       }
     }
-  );
+    handleOAuthCallback();
+  }, []);
+  // ---------------------------------------------
 
-  return () => {
-    console.log('🧹 Cleaning up auth listener');
-    subscription?.unsubscribe();
-  };
-}, []);
+  useEffect(() => {
+    console.log('🔧 AuthContext initializing...');
+    
+    // Check initial auth state
+    checkAuthState();
+
+    // Listen to auth changes with more detailed logging
+    const { data: { subscription } } = SupabaseAuthService.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔄 Auth event received:', event);
+        console.log('👤 Session user:', session?.user?.email || 'No user');
+        console.log('🔑 Session valid:', !!session?.access_token);
+        
+        if (event === 'SIGNED_IN' && session) {
+          console.log('✅ Processing SIGNED_IN event');
+          await handleSignIn(session);
+        } else if (event === 'SIGNED_OUT') {
+          console.log('✅ Processing SIGNED_OUT event');
+          await handleSignOut();
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('✅ Processing TOKEN_REFRESHED event');
+          await updateSession(session);
+        } else {
+          console.log(`ℹ️ Ignoring auth event: ${event}`);
+        }
+      }
+    );
+
+    return () => {
+      console.log('🧹 Cleaning up auth listener');
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   const checkAuthState = async () => {
     try {
@@ -80,16 +105,25 @@ useEffect(() => {
     try {
       console.log('🔐 Processing sign in...');
       
+      // Fetch user settings from the API
+      const settingsResult = await ApiService.getUserSettings();
+      const settings = settingsResult.success ? settingsResult.settings : {};
+
+      // Get name from Supabase user metadata (Google/email login)
+      const supabaseName =
+        session.user?.user_metadata?.full_name ||
+        session.user?.user_metadata?.name ||
+        session.user?.name ||
+        '';
+
+      // Merge name: prefer settings.name, fallback to Supabase name
       const userData = {
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.user_metadata?.full_name || 
-              session.user.user_metadata?.name || 
-              session.user.email?.split('@')[0] || 
-              'User',
-        avatar_url: session.user.user_metadata?.avatar_url,
-        provider: session.user.app_metadata?.provider || 'supabase',
-        email_verified: session.user.email_confirmed_at !== null,
+        ...session.user,
+        name: settings.name || supabaseName,
+        currency: settings.currency || 'USD',
+        language: settings.language || 'en',
+        timezone: settings.timezone || 'UTC',
+        // ...other fields...
       };
 
       // Save to AsyncStorage
@@ -141,13 +175,18 @@ useEffect(() => {
       
       const result = await SupabaseAuthService.signInWithGoogle();
       
-      if (!result.success) {
-        if (result.cancelled) {
+      // On web, result will be undefined because of redirect, so just return
+      if (typeof window !== 'undefined' && window.location) {
+        return { success: true, message: 'Redirecting to Google...' };
+      }
+
+      if (!result?.success) {
+        if (result?.cancelled) {
           console.log('ℹ️ Login cancelled by user');
           return { success: false, message: 'Sign-in was cancelled' };
         }
-        console.error('❌ Login failed:', result.error);
-        return { success: false, message: result.error };
+        console.error('❌ Login failed:', result?.error);
+        return { success: false, message: result?.error };
       }
 
       // Session will be handled by the auth state change listener

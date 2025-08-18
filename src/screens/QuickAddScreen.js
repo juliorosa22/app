@@ -9,438 +9,210 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Keyboard
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import ApiService from '../services/api';
-import { Picker } from '@react-native-picker/picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { theme } from '../constants/theme';
+import { useDataCache } from '../context/DataCacheContext';
+import DateTimePickerModal from "react-native-modal-datetime-picker";
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'; // or 'react-native-vector-icons/MaterialIcons'
+import CurrencyInput from '../components/CurrencyInput';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function QuickAddScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  
+  const { addTransaction, addReminder, categories } = useDataCache();
+  const { t, language } = useLanguage();
+
   // State for form mode
   const [activeTab, setActiveTab] = useState('transaction'); // 'transaction' or 'reminder'
   const [loading, setLoading] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isTransactionDatePickerVisible, setTransactionDatePickerVisibility] = useState(false);
+  const [isReminderDatePickerVisible, setReminderDatePickerVisibility] = useState(false);
 
   // Transaction form state
   const [transactionForm, setTransactionForm] = useState({
     description: '',
     amount: '',
-    transaction_type: 'expense', // 'expense' or 'income'
+    transaction_type: 'expense',
     category: '',
-    merchant: ''
+    merchant: '',
+    date: '', // <-- add this
   });
 
   // Reminder form state
   const [reminderForm, setReminderForm] = useState({
     title: '',
     description: '',
-    due_date: '',
-    due_time: '',
-    priority: 'medium', // 'urgent', 'high', 'medium', 'low'
-    reminder_type: 'general' // 'task', 'event', 'deadline', 'habit', 'general'
+    due_datetime: '', // <-- rename from due_date
+    priority: 'medium',
+    reminder_type: 'general'
   });
 
   // Categories state
-  const [categories, setCategories] = useState([]);
+  const currentCategories = categories[transactionForm.transaction_type] || [];
 
   // Fetch categories on transaction type change
   useEffect(() => {
-    ApiService.getCategories().then(res => {
-      if (res.success) setCategories(res.categories[transactionForm.transaction_type]);
-    });
+    // You may want to cache categories as well, or keep this as is
+    // ApiService.getCategories().then(res => {
+    //   if (res.success) setCategories(res.categories[transactionForm.transaction_type]);
+    // });
   }, [transactionForm.transaction_type]);
 
-  // Form validation
-  const validateTransaction = () => {
-    if (!transactionForm.description.trim()) {
-      Alert.alert('Error', 'Description is required');
-      return false;
-    }
-    if (!transactionForm.amount || parseFloat(transactionForm.amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
-      return false;
-    }
-    return true;
+ 
+  // For category translation (display only)
+  const getCategoryLabel = (cat) => {
+    // Add translation keys for your categories in the locale files if needed
+    // Example: "category_food": "Food", "category_transport": "Transport", etc.
+    return t(`category_${cat}`) !== `category_${cat}` ? t(`category_${cat}`) : cat;
   };
 
-  const validateReminder = () => {
-    if (!reminderForm.title.trim()) {
-      Alert.alert('Error', 'Title is required');
-      return false;
-    }
-    return true;
-  };
+  // TransactionTypeSelector
+  const TransactionTypeSelector = () => (
+    <View style={{ marginBottom: spacing.md }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <TouchableOpacity
+          style={[
+            styles.viewButton,
+            { borderColor: colors.primary, backgroundColor: transactionForm.transaction_type === 'expense' ? colors.primary : colors.surface },
+            transactionForm.transaction_type === 'expense' && styles.viewButtonActive
+          ]}
+          onPress={() => setTransactionForm({ ...transactionForm, transaction_type: 'expense' })}
+        >
+          <MaterialIcons name="money-off" size={20} color={transactionForm.transaction_type === 'expense' ? colors.textOnPrimary : colors.primary} />
+          <Text style={[
+            styles.viewButtonText,
+            { color: transactionForm.transaction_type === 'expense' ? colors.textOnPrimary : colors.primary }
+          ]}>{t('expense')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.viewButton,
+            { borderColor: colors.primary, backgroundColor: transactionForm.transaction_type === 'income' ? colors.primary : colors.surface },
+            transactionForm.transaction_type === 'income' && styles.viewButtonActive
+          ]}
+          onPress={() => setTransactionForm({ ...transactionForm, transaction_type: 'income' })}
+        >
+          <MaterialIcons name="attach-money" size={20} color={transactionForm.transaction_type === 'income' ? colors.textOnPrimary : colors.primary} />
+          <Text style={[
+            styles.viewButtonText,
+            { color: transactionForm.transaction_type === 'income' ? colors.textOnPrimary : colors.primary }
+          ]}>{t('income')}</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
 
-  // Handle transaction creation
-  const handleCreateTransaction = async () => {
-    if (!validateTransaction()) return;
-
-    setLoading(true);
-    try {
-      const result = await ApiService.createTransaction({
-        description: transactionForm.description.trim(),
-        amount: parseFloat(transactionForm.amount),
-        transaction_type: transactionForm.transaction_type,
-        category: transactionForm.category.trim() || null,
-        merchant: transactionForm.merchant.trim() || null,
-        date: new Date().toISOString()
-      });
-
-      if (result.success) {
-        Alert.alert(
-          'Success!',
-          result.message,
-          [
-            {
-              text: 'Add Another',
-              onPress: () => {
-                setTransactionForm({
-                  description: '',
-                  amount: '',
-                  transaction_type: 'expense',
-                  category: '',
-                  merchant: ''
-                });
-              }
-            },
-            {
-              text: 'View Transactions',
-              onPress: () => navigation.navigate('Transactions')
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Error', result.error || 'Failed to create transaction');
-      }
-    } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to create transaction');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle reminder creation
-  const handleCreateReminder = async () => {
-    if (!validateReminder()) return;
-
-    setLoading(true);
-    try {
-      // Combine date and time if provided
-      let due_datetime = null;
-      if (reminderForm.due_date) {
-        const dateStr = reminderForm.due_date;
-        const timeStr = reminderForm.due_time || '09:00';
-        due_datetime = new Date(`${dateStr}T${timeStr}:00`).toISOString();
-      }
-
-      const result = await ApiService.createReminder({
-        title: reminderForm.title.trim(),
-        description: reminderForm.description.trim() || reminderForm.title.trim(),
-        due_datetime,
-        priority: reminderForm.priority,
-        reminder_type: reminderForm.reminder_type
-      });
-
-      if (result.success) {
-        Alert.alert(
-          'Success!',
-          result.message,
-          [
-            {
-              text: 'Add Another',
-              onPress: () => {
-                setReminderForm({
-                  title: '',
-                  description: '',
-                  due_date: '',
-                  due_time: '',
-                  priority: 'medium',
-                  reminder_type: 'general'
-                });
-              }
-            },
-            {
-              text: 'View Reminders',
-              onPress: () => navigation.navigate('Reminders')
-            }
-          ]
-        );
-      } else {
-        Alert.alert('Error', result.error || 'Failed to create reminder');
-      }
-    } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to create reminder');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Get today's date in YYYY-MM-DD format
-
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    scrollContainer: {
-      flexGrow: 1,
-      padding: spacing.lg,
-    },
-    header: {
-      alignItems: 'center',
-      marginBottom: spacing.xl,
-    },
-    title: {
-      fontSize: typography.fontSize['2xl'],
-      fontWeight: typography.fontWeight.bold,
-      color: colors.primary,
-      marginBottom: spacing.sm,
-    },
-    subtitle: {
-      fontSize: typography.fontSize.base,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    tabContainer: {
-      flexDirection: 'row',
-      backgroundColor: colors.surfaceSecondary,
-      borderRadius: 12,
-      padding: 4,
-      marginBottom: spacing.xl,
-    },
-    tab: {
-      flex: 1,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    activeTab: {
-      backgroundColor: colors.primary,
-      ...shadows.sm,
-    },
-    tabText: {
-      fontSize: typography.fontSize.base,
-      fontWeight: typography.fontWeight.medium,
-      color: colors.textSecondary,
-    },
-    activeTabText: {
-      color: colors.textOnPrimary,
-    },
-    formContainer: {
-      flex: 1,
-    },
-    inputGroup: {
-      marginBottom: spacing.lg,
-    },
-    label: {
-      fontSize: typography.fontSize.sm,
-      fontWeight: typography.fontWeight.medium,
-      color: colors.textPrimary,
-      marginBottom: spacing.xs,
-    },
-    input: {
-      height: 48,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      paddingHorizontal: spacing.md,
-      fontSize: typography.fontSize.base,
-      color: colors.textPrimary,
-      backgroundColor: colors.surface,
-    },
-    textArea: {
-      height: 80,
-      textAlignVertical: 'top',
-      paddingTop: spacing.sm,
-    },
-    toggleContainer: {
-      flexDirection: 'row',
-      marginBottom: spacing.sm,
-    },
-    toggleButton: {
-      flex: 1,
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: 'center',
-      marginHorizontal: 2,
-    },
-    toggleButtonFirst: {
-      borderTopLeftRadius: 8,
-      borderBottomLeftRadius: 8,
-    },
-    toggleButtonLast: {
-      borderTopRightRadius: 8,
-      borderBottomRightRadius: 8,
-    },
-    toggleButtonActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    toggleText: {
-      fontSize: typography.fontSize.sm,
-      color: colors.textSecondary,
-    },
-    toggleTextActive: {
-      color: colors.textOnPrimary,
-      fontWeight: typography.fontWeight.medium,
-    },
-    submitButton: {
-      backgroundColor: colors.primary,
-      height: 48,
-      borderRadius: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginTop: spacing.xl,
-      ...shadows.md,
-    },
-    submitButtonDisabled: {
-      backgroundColor: colors.secondaryLight,
-    },
-    submitButtonText: {
-      color: colors.textOnPrimary,
-      fontSize: typography.fontSize.base,
-      fontWeight: typography.fontWeight.semibold,
-    },
-    row: {
-      flexDirection: 'row',
-      gap: spacing.md,
-    },
-    flex1: {
-      flex: 1,
-    },
-    safeArea: {
-      flex: 1,
-      paddingTop: insets.top,
-      paddingBottom: insets.bottom,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-    },
-  });
-
+  // Transaction Form
   const renderTransactionForm = () => (
     <View style={styles.formContainer}>
-      {/* Transaction Type Toggle */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Type</Text>
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              styles.toggleButtonFirst,
-              transactionForm.transaction_type === 'expense' && styles.toggleButtonActive
-            ]}
-            onPress={() => setTransactionForm({...transactionForm, transaction_type: 'expense'})}
-          >
-          <MaterialIcons
-            name={theme.icons.moneyoff.name}
-            size={24}
-            color="red"
-            style={{ marginBottom: 4 }}
-          />
-            <Text style={[
-              styles.toggleText,
-              transactionForm.transaction_type === 'expense' && styles.toggleTextActive
-            ]}>
-              Expense
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleButton,
-              styles.toggleButtonLast,
-              transactionForm.transaction_type === 'income' && styles.toggleButtonActive
-            ]}
-            onPress={() => setTransactionForm({...transactionForm, transaction_type: 'income'})}
-          >
-          <MaterialIcons
-            name={theme.icons.moneyon.name}
-            size={24}
-            color="green"
-            style={{ marginBottom: 4 }}
-          />
-            <Text style={[
-              styles.toggleText,
-              transactionForm.transaction_type === 'income' && styles.toggleTextActive
-            ]}>
-              Income
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Description */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Description *</Text>
+        <Text style={styles.label}>{t('description_label')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g., Coffee at Starbucks"
+          placeholder={t('description_placeholder')}
           placeholderTextColor={colors.textLight}
           value={transactionForm.description}
           onChangeText={(text) => setTransactionForm({...transactionForm, description: text})}
           maxLength={100}
         />
       </View>
-
-      {/* Amount */}
+      <TransactionTypeSelector />
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Amount * ({user?.currency || 'USD'})</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="0.00"
-          placeholderTextColor={colors.textLight}
+        <Text style={styles.label}>{t('amount_label')}</Text>
+        <CurrencyInput
           value={transactionForm.amount}
-          onChangeText={(text) => setTransactionForm({...transactionForm, amount: text})}
-          keyboardType="decimal-pad"
-          maxLength={10}
+          onValueChange={(value) => setTransactionForm({ ...transactionForm, amount: value })}
+          currency={user?.currency || 'USD'}
+          style={[styles.input, { color: colors.textPrimary }]}
+          placeholderTextColor={colors.textLight}
+          placeholder={t('amount_placeholder')}
         />
       </View>
-
-      {/* Optional Fields */}
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, styles.flex1]}>
-          <Text style={styles.label}>Category</Text>
-          <Picker
-            selectedValue={transactionForm.category}
-            onValueChange={(value) => setTransactionForm({ ...transactionForm, category: value })}
-            style={styles.input}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>{t('category_label')}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4 }}>
+          {currentCategories.map(cat => (
+            <TouchableOpacity
+              key={cat}
+              style={[
+                styles.categoryChip,
+                transactionForm.category === cat && styles.categoryChipActive
+              ]}
+              onPress={() => setTransactionForm({ ...transactionForm, category: cat })}
+              activeOpacity={0.8}
+            >
+              <Text style={[
+                styles.categoryChipText,
+                transactionForm.category === cat && styles.categoryChipTextActive
+              ]}>
+                {getCategoryLabel(cat)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[
+              styles.categoryChip,
+              !transactionForm.category && styles.categoryChipActive
+            ]}
+            onPress={() => setTransactionForm({ ...transactionForm, category: '' })}
+            activeOpacity={0.8}
           >
-            <Picker.Item label="Auto-detect" value="" />
-            {categories.map(cat => (
-              <Picker.Item key={cat} label={cat} value={cat} />
-            ))}
-          </Picker>
-        </View>
-        <View style={[styles.inputGroup, styles.flex1]}>
-          <Text style={styles.label}>Merchant</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Optional"
-            placeholderTextColor={colors.textLight}
-            value={transactionForm.merchant}
-            onChangeText={(text) => setTransactionForm({...transactionForm, merchant: text})}
-            maxLength={50}
-          />
-        </View>
+            <Text style={[
+              styles.categoryChipText,
+              !transactionForm.category && styles.categoryChipTextActive
+            ]}>
+              {t('category_auto')}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
-
-      {/* Submit Button */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>{t('merchant_label')}</Text>
+        <TextInput
+          style={styles.input}
+          placeholder={t('merchant_placeholder')}
+          placeholderTextColor={colors.textLight}
+          value={transactionForm.merchant}
+          onChangeText={(text) => setTransactionForm({ ...transactionForm, merchant: text })}
+          maxLength={50}
+        />
+      </View>
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>{t('date_label')}</Text>
+        <TouchableOpacity
+          onPress={showTransactionDatePicker}
+          style={[
+            styles.dateTimeRow,
+            { borderColor: colors.border, backgroundColor: colors.surface }
+          ]}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="event" size={22} color={colors.primary} style={{ marginRight: 8 }} />
+          <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
+            {transactionForm.date
+              ? new Date(transactionForm.date).toLocaleDateString()
+              : t('date_placeholder')}
+          </Text>
+        </TouchableOpacity>
+        <DateTimePickerModal
+          isVisible={isTransactionDatePickerVisible}
+          mode="date"
+          onConfirm={handleTransactionDateConfirm}
+          onCancel={hideTransactionDatePicker}
+          display={Platform.OS === 'android' ? 'spinner' : 'default'}
+        />
+      </View>
       <TouchableOpacity
         style={[
           styles.submitButton,
           loading && styles.submitButtonDisabled,
-          { marginBottom: insets.bottom } // <-- Add this line
+          { marginBottom: insets.bottom }
         ]}
         onPress={handleCreateTransaction}
         disabled={loading}
@@ -449,34 +221,32 @@ export default function QuickAddScreen({ navigation }) {
           <ActivityIndicator color={colors.textOnPrimary} />
         ) : (
           <Text style={styles.submitButtonText}>
-            Add {transactionForm.transaction_type === 'expense' ? 'Expense' : 'Income'}
+            {transactionForm.transaction_type === 'expense' ? t('add_expense') : t('add_income')}
           </Text>
         )}
       </TouchableOpacity>
     </View>
   );
 
+  // Reminder Form
   const renderReminderForm = () => (
     <View style={styles.formContainer}>
-      {/* Title */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Title *</Text>
+        <Text style={styles.label}>{t('title_label')}</Text>
         <TextInput
           style={styles.input}
-          placeholder="e.g., Call mom"
+          placeholder={t('title_placeholder')}
           placeholderTextColor={colors.textLight}
           value={reminderForm.title}
           onChangeText={(text) => setReminderForm({...reminderForm, title: text})}
           maxLength={100}
         />
       </View>
-
-      {/* Description */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Description</Text>
+        <Text style={styles.label}>{t('reminder_description_label')}</Text>
         <TextInput
           style={[styles.input, styles.textArea]}
-          placeholder="Additional details..."
+          placeholder={t('reminder_description_placeholder')}
           placeholderTextColor={colors.textLight}
           value={reminderForm.description}
           onChangeText={(text) => setReminderForm({...reminderForm, description: text})}
@@ -484,103 +254,478 @@ export default function QuickAddScreen({ navigation }) {
           maxLength={500}
         />
       </View>
-
-      {/* Due Date and Time */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Due Date & Time</Text>
-        <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-          <Text style={styles.input}>
-            {reminderForm.due_date
-              ? new Date(reminderForm.due_date).toLocaleString()
-              : 'Select date & time'}
+        <Text style={styles.label}>{t('due_label')}</Text>
+        <TouchableOpacity
+          onPress={showReminderDatePicker}
+          style={[
+            styles.dateTimeRow,
+            { borderColor: colors.border, backgroundColor: colors.surface }
+          ]}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="event" size={22} color={colors.primary} style={{ marginRight: 8 }} />
+          <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
+            {reminderForm.due_datetime
+              ? new Date(reminderForm.due_datetime).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : t('due_placeholder')}
           </Text>
         </TouchableOpacity>
-        {showDatePicker && (
-          <DateTimePicker
-            value={reminderForm.due_date ? new Date(reminderForm.due_date) : new Date()}
-            mode="datetime"
-            display="default"
-            onChange={(event, selectedDate) => {
-              setShowDatePicker(false);
-              if (event.type === "set" && selectedDate) {
-                setReminderForm({ ...reminderForm, due_date: selectedDate.toISOString() });
-              }
-              // Do nothing on "dismissed"
-            }}
-          />
-        )}
+        <DateTimePickerModal
+          isVisible={isReminderDatePickerVisible}
+          mode="datetime"
+          onConfirm={handleReminderDateConfirm}
+          onCancel={hideReminderDatePicker}
+          display={Platform.OS === 'android' ? 'spinner' : 'default'}
+        />
       </View>
-
-      {/* Priority */}
       <View style={styles.inputGroup}>
-        <Text style={styles.label}>Priority</Text>
-        <View style={styles.toggleContainer}>
-          {['low', 'medium', 'high', 'urgent'].map((priority) => (
+        <Text style={styles.label}>{t('priority_label')}</Text>
+        <View style={styles.prioritySlider}>
+          {['low', 'medium', 'high', 'urgent'].map((priority, idx) => (
             <TouchableOpacity
               key={priority}
               style={[
-                styles.toggleButton,
-                priority === 'low' && styles.toggleButtonFirst,
-                priority === 'urgent' && styles.toggleButtonLast,
-                reminderForm.priority === priority && styles.toggleButtonActive
+                styles.priorityDot,
+                reminderForm.priority === priority && styles.priorityDotActive,
+                { backgroundColor: getPriorityColor(priority) }
               ]}
-              onPress={() => setReminderForm({...reminderForm, priority})}
+              onPress={() => setReminderForm({ ...reminderForm, priority })}
+              activeOpacity={0.8}
             >
               <Text style={[
-                styles.toggleText,
-                reminderForm.priority === priority && styles.toggleTextActive
+                styles.priorityLabel,
+                reminderForm.priority === priority && styles.priorityLabelActive
               ]}>
-                {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                {t(`priority_${priority}`)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-      </View>
-
-      {/* Type */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.label}>Type</Text>
-        <View style={styles.toggleContainer}>
-          {['general', 'task', 'event'].map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[
-                styles.toggleButton,
-                type === 'general' && styles.toggleButtonFirst,
-                type === 'event' && styles.toggleButtonLast,
-                reminderForm.reminder_type === type && styles.toggleButtonActive
-              ]}
-              onPress={() => setReminderForm({...reminderForm, reminder_type: type})}
-            >
-              <Text style={[
-                styles.toggleText,
-                reminderForm.reminder_type === type && styles.toggleTextActive
-              ]}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.priorityLabelsRow}>
+          <Text style={styles.priorityLabelText}>{t('priority_low')}</Text>
+          <Text style={styles.priorityLabelText}>{t('priority_medium')}</Text>
+          <Text style={styles.priorityLabelText}>{t('priority_high')}</Text>
+          <Text style={styles.priorityLabelText}>{t('priority_urgent')}</Text>
         </View>
       </View>
-
-      {/* Submit Button */}
       <TouchableOpacity
         style={[
           styles.submitButton,
           loading && styles.submitButtonDisabled,
-          { marginBottom: insets.bottom } // <-- Add this line
+          { marginBottom: insets.bottom }
         ]}
         onPress={handleCreateReminder}
         disabled={loading}
+        activeOpacity={0.85}
       >
         {loading ? (
           <ActivityIndicator color={colors.textOnPrimary} />
         ) : (
-          <Text style={styles.submitButtonText}>Add Reminder</Text>
+          <Text style={styles.submitButtonText}>{t('add_reminder')}</Text>
         )}
       </TouchableOpacity>
     </View>
   );
+
+  // ViewSelector component
+  const ViewSelector = () => (
+    <View style={{ marginBottom: spacing.md }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <TouchableOpacity
+          style={[
+            styles.viewButton,
+            { borderColor: colors.primary, backgroundColor: activeTab === 'transaction' ? colors.primary : colors.surface },
+            activeTab === 'transaction' && styles.viewButtonActive
+          ]}
+          onPress={() => setActiveTab('transaction')}
+        >
+          <MaterialIcons name="attach-money" size={20} color={activeTab === 'transaction' ? colors.textOnPrimary : colors.primary} />
+          <Text style={[
+            styles.viewButtonText,
+            { color: activeTab === 'transaction' ? colors.textOnPrimary : colors.primary }
+          ]}>{t('transaction_tab')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.viewButton,
+            { borderColor: colors.primary, backgroundColor: activeTab === 'reminder' ? colors.primary : colors.surface },
+            activeTab === 'reminder' && styles.viewButtonActive
+          ]}
+          onPress={() => setActiveTab('reminder')}
+        >
+          <MaterialIcons name="notifications-active" size={20} color={activeTab === 'reminder' ? colors.textOnPrimary : colors.primary} />
+          <Text style={[
+            styles.viewButtonText,
+            { color: activeTab === 'reminder' ? colors.textOnPrimary : colors.primary }
+          ]}>{t('reminder_tab')}</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </View>
+  );
+
+  // Validation
+  const validateTransaction = () => {
+    if (!transactionForm.description.trim()) {
+      Alert.alert(t('error'), t('description_required'));
+      return false;
+    }
+    if (!transactionForm.amount || parseFloat(transactionForm.amount) <= 0) {
+      Alert.alert(t('error'), t('amount_required'));
+      return false;
+    }
+    return true;
+  };
+
+  const validateReminder = () => {
+    if (!reminderForm.title.trim()) {
+      Alert.alert(t('error'), t('title_required'));
+      return false;
+    }
+    return true;
+  };
+
+  // Handle transaction creation
+  const handleCreateTransaction = async () => {
+    if (!validateTransaction()) return;
+    setLoading(true);
+    try {
+      await addTransaction({
+        ...transactionForm,
+        amount: parseFloat(transactionForm.amount),
+        user_id: user?.id,
+        date: new Date().toISOString()
+      });
+      Alert.alert(
+        t('success'),
+        t('transaction_added'),
+        [
+          {
+            text: t('add_another'),
+            onPress: () => {
+              setTransactionForm({
+                description: '',
+                amount: '',
+                transaction_type: 'expense',
+                category: '',
+                merchant: ''
+              });
+            }
+          },
+          {
+            text: t('view_transactions'),
+            onPress: () => navigation.navigate('Transactions')
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert(t('error'), error.message || t('transaction_error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle reminder creation
+  const handleCreateReminder = async () => {
+    if (!validateReminder()) return;
+    setLoading(true);
+    try {
+      let dueDateTime = reminderForm.due_datetime;
+      if (!dueDateTime) {
+        const next24h = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        dueDateTime = next24h.toISOString();
+      }
+      await addReminder({
+        ...reminderForm,
+        user_id: user?.id,
+        due_datetime: dueDateTime
+      });
+      Alert.alert(
+        t('success'),
+        t('reminder_added'),
+        [
+          {
+            text: t('add_another'),
+            onPress: () => {
+              setReminderForm({
+                title: '',
+                description: '',
+                due_datetime: '',
+                priority: 'medium',
+                reminder_type: 'general'
+              });
+            }
+          },
+          {
+            text: t('view_reminders'),
+            onPress: () => navigation.navigate('Reminders')
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert(t('error'), error.message || t('reminder_error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showTransactionDatePicker = () => setTransactionDatePickerVisibility(true);
+  const hideTransactionDatePicker = () => setTransactionDatePickerVisibility(false);
+
+  const showReminderDatePicker = () => setReminderDatePickerVisibility(true);
+  const hideReminderDatePicker = () => setReminderDatePickerVisibility(false);
+
+  const handleTransactionDateConfirm = (date) => {
+    setTransactionForm({ ...transactionForm, date: date.toISOString().split('T')[0] }); // YYYY-MM-DD
+    hideTransactionDatePicker();
+  };
+
+  const handleReminderDateConfirm = (date) => {
+    setReminderForm({ ...reminderForm, due_datetime: date.toISOString() }); // full ISO
+    hideReminderDatePicker();
+  };
+
+  const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    padding: spacing.lg,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+  },
+  title: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+    marginBottom: spacing.sm,
+  },
+  subtitle: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: spacing.xl,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  activeTab: {
+    backgroundColor: colors.primary,
+    ...shadows.sm,
+  },
+  tabText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textSecondary,
+  },
+  activeTabText: {
+    color: colors.textOnPrimary,
+  },
+  formContainer: {
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: spacing.lg,
+  },
+  label: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  input: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+    backgroundColor: colors.surface,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+    paddingTop: spacing.sm,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    marginHorizontal: 2,
+  },
+  toggleButtonFirst: {
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  toggleButtonLast: {
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  toggleButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  toggleText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  toggleTextActive: {
+    color: colors.textOnPrimary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  submitButton: {
+    backgroundColor: colors.primary,
+    height: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    ...shadows.md,
+  },
+  submitButtonDisabled: {
+    backgroundColor: colors.secondaryLight,
+  },
+  submitButtonText: {
+    color: colors.textOnPrimary,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  flex1: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    paddingTop: insets.top,
+    paddingBottom: insets.bottom,
+    paddingLeft: insets.left,
+    paddingRight: insets.right,
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  prioritySlider: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginVertical: spacing.sm,
+    marginHorizontal: 4,
+  },
+  priorityDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    opacity: 0.4,
+    marginHorizontal: 2,
+  },
+  priorityDotActive: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    opacity: 1,
+  },
+  priorityLabel: {
+    color: colors.textOnPrimary,
+    fontWeight: 'bold',
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  priorityLabelActive: {
+    opacity: 1,
+  },
+  priorityLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 4,
+  },
+  priorityLabelText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    width: 32,
+    textAlign: 'center',
+  },
+  viewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginHorizontal: 4,
+  },
+  viewButtonActive: {
+    // Optionally add shadow or elevation here
+  },
+  viewButtonText: {
+    marginLeft: 6,
+    fontWeight: 'bold',
+  },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  categoryChipActive: {
+    backgroundColor: colors.primary,
+  },
+  categoryChipText: {
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  categoryChipTextActive: {
+    color: colors.textOnPrimary,
+  },
+});
+
+const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'low': return '#43a047';
+    case 'medium': return '#fb8c00';
+    case 'high': return '#e53935';
+    case 'urgent': return '#8e24aa';
+    default: return colors.primary;
+  }
+};
+
+
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
@@ -593,37 +738,14 @@ export default function QuickAddScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
+          {/* Header*/} 
           <View style={styles.header}>
-            <Text style={styles.title}>Quick Add</Text>
-            <Text style={styles.subtitle}>Add a transaction or reminder</Text>
+            <Text style={styles.title}>{t('quick_add_title')}</Text>
+            <Text style={styles.subtitle}>{t('quick_add_subtitle')}</Text>
           </View>
 
-          {/* Tab Selector */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'transaction' && styles.activeTab]}
-              onPress={() => setActiveTab('transaction')}
-            >
-              <Text style={[
-                styles.tabText,
-                activeTab === 'transaction' && styles.activeTabText
-              ]}>
-                💰 Transaction
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'reminder' && styles.activeTab]}
-              onPress={() => setActiveTab('reminder')}
-            >
-              <Text style={[
-                styles.tabText,
-                activeTab === 'reminder' && styles.activeTabText
-              ]}>
-                🔔 Reminder
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* ViewSelector replaces the old tab selector */}
+          <ViewSelector />
 
           {/* Form Content */}
           {activeTab === 'transaction' ? renderTransactionForm() : renderReminderForm()}
@@ -631,4 +753,8 @@ export default function QuickAddScreen({ navigation }) {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+
+
+
 }
+

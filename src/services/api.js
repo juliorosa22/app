@@ -1,5 +1,5 @@
 // src/services/api.js - Updated to use direct Supabase for data operations
-import { supabase } from './supabase';
+import { supabase } from './supabaseAuth'; // <-- Use the instance from supabaseAuth.js
 import SupabaseAuthService from './supabaseAuth';
 
 class ApiService {
@@ -588,6 +588,78 @@ class ApiService {
       if (error) throw error;
 
       return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateReminder(reminderId, updateData) {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await this.supabase
+        .from('reminders')
+        .update({ ...updateData, updated_at: new Date().toISOString() })
+        .eq('id', reminderId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, reminder: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteReminder(reminderId) {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await this.supabase
+        .from('reminders')
+        .delete()
+        .eq('id', reminderId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getUserSettings() {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const { data, error } = await this.supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      if (error) throw error;
+      return { success: true, settings: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateUserSettings(settings) {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+      const { data, error } = await this.supabase
+        .from('user_settings')
+        .upsert({ user_id: user.id, ...settings, updated_at: new Date().toISOString() })
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, settings: data };
     } catch (error) {
       return { success: false, error: error.message };
     }
