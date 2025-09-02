@@ -18,8 +18,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import CurrencyInput from '../components/CurrencyInput';
 import { useAuth } from '../context/AuthContext';
-import { formatValue } from 'react-currency-input-field';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+//import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function EditTransactionScreen({ route, navigation }) {

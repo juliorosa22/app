@@ -10,7 +10,8 @@ WebBrowser.maybeCompleteAuthSession();
 
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 'https://nprskndftygvxeldrthw.supabase.co';
 const supabaseAnonKey = Constants.expoConfig?.extra?.supabasePublishableKey || 'your-anon-key';
-
+console.log('🔗 Supabase URL:', supabaseUrl);
+console.log('🔑 Supabase Anon Key:', supabaseAnonKey);
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
@@ -106,6 +107,7 @@ class SupabaseAuthService {
         const { data: userData } = await supabase.auth.getUser();
         console.log('✅ User:', userData.user?.email);
 
+        // ✅ Enhanced user data extraction in signInWithGoogle
         return {
           success: true,
           user: {
@@ -113,10 +115,15 @@ class SupabaseAuthService {
             email: userData.user?.email,
             name: userData.user?.user_metadata?.full_name || 
                   userData.user?.user_metadata?.name || 
+                  userData.user?.user_metadata?.display_name ||
                   'Google User',
-            avatar_url: userData.user?.user_metadata?.avatar_url,
-            provider: 'google',
-            email_verified: userData.user?.email_confirmed_at !== null,
+            //avatar_url: userData.user?.user_metadata?.avatar_url || 
+            //            userData.user?.user_metadata?.picture,
+            //provider: 'google',
+            //email_verified: userData.user?.email_confirmed_at !== null,
+            // ✅ Add additional Google profile fields
+            locale: userData.user?.user_metadata?.locale,
+            currency: userData.user?.user_metadata?.currency,
           },
           session: sessionData.session,
         };
@@ -324,6 +331,132 @@ async processOAuthCallback(callbackUrl) {
       return { success: true, data };
     } catch (error) {
       return { success: false, error: error.message };
+    }
+  }
+
+  async resetPassword(email) {
+    try {
+      console.log('🔄 Starting password reset for:', email);
+      
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: Platform.OS === 'web' 
+          ? `${window.location.origin}/reset-password`
+          : `${Constants.expoConfig?.scheme || 'okanassist'}://reset-password`
+      });
+
+      if (error) {
+        throw new Error(`Password reset error: ${error.message}`);
+      }
+
+      console.log('✅ Password reset email sent successfully');
+      return { 
+        success: true, 
+        message: 'Password reset email sent. Please check your inbox.' 
+      };
+    } catch (error) {
+      console.error('❌ Password reset error:', error);
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+  }
+
+  async updatePassword(newPassword) {
+    try {
+      console.log('🔄 Updating password...');
+      
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw new Error(`Password update error: ${error.message}`);
+      }
+
+      console.log('✅ Password updated successfully');
+      return { 
+        success: true, 
+        message: 'Password updated successfully' 
+      };
+    } catch (error) {
+      console.error('❌ Password update error:', error);
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+  }
+
+  async verifyOtp(email, token, type = 'recovery') {
+    try {
+      console.log('🔄 Verifying OTP token...');
+      
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type
+      });
+
+      if (error) {
+        throw new Error(`OTP verification error: ${error.message}`);
+      }
+
+      console.log('✅ OTP verified successfully');
+      return { 
+        success: true, 
+        session: data.session,
+        user: data.user
+      };
+    } catch (error) {
+      console.error('❌ OTP verification error:', error);
+      return { 
+        success: false, 
+        error: error.message 
+      };
+    }
+  }
+
+  // Handle deep link for password reset
+  async handlePasswordResetLink(url) {
+    try {
+      console.log('🔗 Handling password reset link:', url);
+      
+      const urlObj = new URL(url);
+      const accessToken = urlObj.searchParams.get('access_token');
+      const refreshToken = urlObj.searchParams.get('refresh_token');
+      const type = urlObj.searchParams.get('type');
+
+      if (type !== 'recovery') {
+        throw new Error('Invalid reset link type');
+      }
+
+      if (!accessToken) {
+        throw new Error('No access token in reset link');
+      }
+
+      // Set session with the tokens from the reset link
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      if (sessionError) {
+        throw new Error(`Session error: ${sessionError.message}`);
+      }
+
+      console.log('✅ Password reset session established');
+      return { 
+        success: true, 
+        session: sessionData.session,
+        canResetPassword: true
+      };
+    } catch (error) {
+      console.error('❌ Password reset link error:', error);
+      return { 
+        success: false, 
+        error: error.message 
+      };
     }
   }
 }

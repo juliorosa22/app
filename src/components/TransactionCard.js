@@ -1,16 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { formatValue } from 'react-currency-input-field';
-import { getCurrencyConfig } from '../utils/currencyHelper';
+import { formatCurrency } from '../utils/currencyHelper'; // ✅ Use your custom function
 
 export default function TransactionCard({ transaction, onPress, currency = 'USD' }) {
-  const currencyConfig = getCurrencyConfig(currency);
-  
-  const formattedAmount = formatValue({
-    value: String(transaction.amount || 0), // Convert to string
-    ...currencyConfig,
-  });
+  // ✅ Use your custom formatCurrency function
+  const formattedAmount = formatCurrency(transaction.amount || 0, currency);
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(transaction)}>

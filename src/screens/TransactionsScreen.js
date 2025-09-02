@@ -11,6 +11,8 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Platform, Dimensions } from 'react-native';
 import TelegramBotHeaderButton from '../components/TelegramBotHeaderButton';
 import { useLanguage } from '../context/LanguageContext';
+// ✅ Import dateHelper functions
+import { getDateRange, isDateInRange, getLocalDateString, getTodayEndOfDay } from '../utils/dateHelper';
 
 export default function TransactionsScreen({ navigation }) {
   console.log('[TransactionsScreen] Rendered');
@@ -56,32 +58,35 @@ export default function TransactionsScreen({ navigation }) {
   // Loading state based on cache
   const loading = allTransactions.length === 0;
 
-  // Last Month
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const thirtyDaysAgo = new Date(today);
-  thirtyDaysAgo.setDate(today.getDate() - 30);
+  // ✅ Use dateHelper for consistent date filtering
+  const { start: thirtyDaysAgo, end: today } = getDateRange('last30days');
 
-  const lastMonthTx = allTransactions.filter(tx => {
-    if (!tx.date) return false;
-    const txDateObj = new Date(tx.date);
-    if (isNaN(txDateObj)) return false;
-    // Compare only the date part
-    const txDate = new Date(txDateObj.getFullYear(), txDateObj.getMonth(), txDateObj.getDate());
-    return txDate >= thirtyDaysAgo && txDate <= today;
-  });
+  // ✅ Use isDateInRange for last month transactions
+  const lastMonthTx = allTransactions.filter(tx => 
+    isDateInRange(tx.date, thirtyDaysAgo, today)
+  );
 
-  // Period
+  // ✅ Fix the period transactions filtering to use dateHelper consistently
   const periodTx = allTransactions.filter(tx => {
     if (!periodStartDate || !periodEndDate) return false;
-    const txDate = new Date(tx.date);
-    return txDate >= new Date(periodStartDate) && txDate <= new Date(periodEndDate);
+    
+    // ✅ Use dateHelper functions for consistent date parsing
+    const startDate = new Date(periodStartDate + 'T00:00:00'); // Start of start date
+    const endDate = new Date(periodEndDate + 'T23:59:59'); // End of end date
+    
+    return isDateInRange(tx.date, startDate, endDate);
   });
 
-  // Dashboard data
+  // ✅ Determine which transactions to use for dashboard
+  const dashboardTx = (periodStartDate && periodEndDate) ? periodTx : lastMonthTx;
+
+  // ✅ Add debugging specifically for period view
+
+
+  // ✅ Update Dashboard data to use selected period when available
   const sumByCategory = (type) => {
     const sums = {};
-    lastMonthTx.filter(tx => tx.transaction_type === type).forEach(tx => {
+    dashboardTx.filter(tx => tx.transaction_type === type).forEach(tx => {
       const cat = tx.category || 'Uncategorized';
       sums[cat] = (sums[cat] || 0) + tx.amount;
     });
@@ -158,106 +163,210 @@ export default function TransactionsScreen({ navigation }) {
       '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#B0E57C', '#F67280', '#355C7D', '#6C5B7B'
     ];
     const pieData = expenseCategories.map((cat, idx) => ({
-      name: cat, // Only category name
+      name: cat,
       amount: expenseSums[cat],
       color: pieColors[idx % pieColors.length],
       legendFontColor: colors.textPrimary,
       legendFontSize: 14,
-      // Calculate percentage for label
       percentage: totalExpenses ? ((expenseSums[cat] / totalExpenses) * 100).toFixed(1) : 0,
     }));
 
     // Prepare data for Income vs Expenses ProgressChart
     const totalIncome = Object.values(incomeSums).reduce((a, b) => a + b, 0);
-    const maxValue = Math.max(totalIncome, totalExpenses, 1); // avoid division by zero
+    const maxValue = Math.max(totalIncome, totalExpenses, 1);
     const incomeRatio = totalIncome / maxValue;
     const expenseRatio = totalExpenses / maxValue;
 
+    // Card styles
+    const cardStyle = {
+      backgroundColor: colors.surface,
+      marginHorizontal: 12,
+      marginVertical: 6,
+      padding: 16,
+      borderRadius: 12,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOpacity: 0.08,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+    };
+
+    // ✅ Determine dashboard title based on selected period
+    const dashboardTitle = (periodStartDate && periodEndDate) 
+      ? `${t('overview')} ${new Date(periodStartDate + 'T00:00:00').toLocaleDateString()} - ${new Date(periodEndDate + 'T00:00:00').toLocaleDateString()}`
+      : t('overview_last_30_days');
+
     return (
       <View style={{ marginBottom: spacing.lg }}>
-        <Text style={{ fontSize: typography.fontSize.lg, fontWeight: 'bold', color: colors.primary, marginBottom: spacing.md }}>
-          {t('overview_last_30_days')}
+        <Text style={{ 
+          fontSize: typography.fontSize.lg, 
+          fontWeight: 'bold', 
+          color: colors.primary, 
+          marginBottom: spacing.md,
+          marginHorizontal: 12 
+        }}>
+          {dashboardTitle}
         </Text>
         
-        <Text style={{ fontWeight: 'bold', marginBottom: spacing.sm }}>{t('expenses_by_category')}</Text>
-        {expenseCategories.length > 0 ? (
-          <PieChart
-            data={pieData.map(d => ({
-              name: `${d.name} (${d.percentage}%)`, // Only category and percentage
-              population: d.amount,
-              color: d.color,
-              legendFontColor: d.legendFontColor,
-              legendFontSize: d.legendFontSize,
-            }))}
-            width={Dimensions.get('window').width - 32}
-            height={220}
-            chartConfig={{
-              color: () => colors.primary,
-              labelColor: () => colors.textPrimary,
-            }}
-            accessor="population"
-            backgroundColor="transparent"
-            paddingLeft="15"
-            absolute
-          />
-        ) : (
-          <Text style={{ color: colors.textSecondary, fontStyle: 'italic', marginBottom: spacing.md }}>
-            {t('no_expenses_to_display')}
+        {/* Expenses by Category Card */}
+        <View style={cardStyle}>
+          <Text style={{ 
+            fontWeight: 'bold', 
+            marginBottom: spacing.md,
+            color: colors.textPrimary,
+            fontSize: typography.fontSize.base 
+          }}>
+            {t('expenses_by_category')}
           </Text>
-        )}
-
-       
-        <Text style={{ fontWeight: 'bold', marginTop: spacing.lg, marginBottom: spacing.sm }}>
-          {t('income_vs_expenses_balance')}
-        </Text>
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          height: 40,
-          width: '100%',
-          marginBottom: spacing.md,
-        }}>
           
-          <View style={{
-            flex: incomeRatio,
-            backgroundColor: '#43a047', // green
-            height: 24,
-            borderTopLeftRadius: 12,
-            borderBottomLeftRadius: 12,
-            justifyContent: 'center',
-            alignItems: 'flex-end',
-            paddingRight: 8,
-          }}>
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-              {totalIncome.toFixed(2)}
+          {expenseCategories.length > 0 ? (
+            <View>
+              {/* Pie Chart */}
+              <View style={{ 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                marginBottom: spacing.md,
+                width: '100%' // Ensure full width
+              }}>
+                <PieChart
+                  data={pieData.map(d => ({
+                    name: d.name,
+                    population: d.amount,
+                    color: d.color,
+                    legendFontColor: 'transparent', // Hide default legend
+                    legendFontSize: 0,
+                  }))}
+                  width={Dimensions.get('window').width - 96} // Reduced width for better centering (was -64)
+                  height={200}
+                  chartConfig={{
+                    color: () => colors.primary,
+                    labelColor: () => colors.textPrimary,
+                  }}
+                  accessor="population"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  absolute={false} // Show percentages on chart
+                  hasLegend={false} // Hide default legend
+                  center={[10, 0]} // Additional centering offset
+                />
+              </View>
+              
+              {/* Custom Legend Below Chart */}
+              <View style={{ marginTop: spacing.sm }}>
+                {pieData.map((item, idx) => (
+                  <View key={item.name} style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: spacing.xs,
+                    paddingHorizontal: spacing.sm
+                  }}>
+                    <View style={{
+                      width: 16,
+                      height: 16,
+                      backgroundColor: item.color,
+                      borderRadius: 8,
+                      marginRight: spacing.sm,
+                    }} />
+                    <Text style={{
+                      flex: 1,
+                      color: colors.textPrimary,
+                      fontSize: typography.fontSize.sm,
+                      fontWeight: '500'
+                    }}>
+                      {item.name}
+                    </Text>
+                    <Text style={{
+                      color: colors.textSecondary,
+                      fontSize: typography.fontSize.sm,
+                      fontWeight: 'bold'
+                    }}>
+                      {item.percentage}%
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Text style={{ 
+              color: colors.textSecondary, 
+              fontStyle: 'italic',
+              textAlign: 'center',
+              paddingVertical: spacing.lg 
+            }}>
+              {t('no_expenses_to_display')}
             </Text>
-          </View>
-          
-          <View style={{
-            flex: expenseRatio,
-            backgroundColor: '#e53935', // red
-            height: 24,
-            borderTopRightRadius: 12,
-            borderBottomRightRadius: 12,
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-            paddingLeft: 8,
-          }}>
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>
-              {totalExpenses.toFixed(2)}
-            </Text>
-          </View>
+          )}
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 4 }}>
-          <Text style={{ color: '#43a047', fontWeight: 'bold' }}>{t('income')}</Text>
-          <Text style={{ color: '#e53935', fontWeight: 'bold' }}>{t('expenses')}</Text>
+
+        {/* Income vs Expenses Balance Card */}
+        <View style={cardStyle}>
+          <Text style={{ 
+            fontWeight: 'bold', 
+            marginBottom: spacing.md,
+            color: colors.textPrimary,
+            fontSize: typography.fontSize.base 
+          }}>
+            {t('income_vs_expenses_balance')}
+          </Text>
+          
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            height: 40,
+            width: '100%',
+            marginBottom: spacing.sm,
+          }}>
+            <View style={{
+              flex: incomeRatio,
+              backgroundColor: '#43a047',
+              height: 24,
+              borderTopLeftRadius: 12,
+              borderBottomLeftRadius: 12,
+              justifyContent: 'center',
+              alignItems: 'flex-end',
+              paddingRight: 8,
+              minWidth: incomeRatio > 0 ? 60 : 0, // Minimum width when there's income
+            }}>
+              {incomeRatio > 0 && (
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>
+                  {totalIncome.toFixed(2)}
+                </Text>
+              )}
+            </View>
+            
+            <View style={{
+              flex: expenseRatio,
+              backgroundColor: '#e53935',
+              height: 24,
+              borderTopRightRadius: 12,
+              borderBottomRightRadius: 12,
+              justifyContent: 'center',
+              alignItems: 'flex-start',
+              paddingLeft: 8,
+              minWidth: expenseRatio > 0 ? 60 : 0, // Minimum width when there are expenses
+            }}>
+              {expenseRatio > 0 && (
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>
+                  {totalExpenses.toFixed(2)}
+                </Text>
+              )}
+            </View>
+          </View>
+          
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 4 }}>
+            <Text style={{ color: '#43a047', fontWeight: 'bold', fontSize: typography.fontSize.sm }}>
+              {t('income')}
+            </Text>
+            <Text style={{ color: '#e53935', fontWeight: 'bold', fontSize: typography.fontSize.sm }}>
+              {t('expenses')}
+            </Text>
+          </View>
         </View>
       </View>
     );
   };
 
   // Period View
-  
   const PeriodView = () => (
     <View style={{
       marginBottom: spacing.lg,
@@ -274,6 +383,7 @@ export default function TransactionsScreen({ navigation }) {
         {t('select_period')}
       </Text>
       
+      {/* ✅ Start Date Button */}
       <TouchableOpacity
         onPress={() => setStartPickerVisible(true)}
         style={{
@@ -292,22 +402,12 @@ export default function TransactionsScreen({ navigation }) {
         <MaterialIcons name="event" size={22} color={colors.primary} style={{ marginRight: 8 }} />
         <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
           {periodStartDate
-            ? new Date(periodStartDate).toLocaleDateString()
+            ? new Date(periodStartDate + 'T00:00:00').toLocaleDateString()
             : t('select_start_date')}
         </Text>
       </TouchableOpacity>
-      <DateTimePickerModal
-        isVisible={isStartPickerVisible}
-        mode="date"
-        onConfirm={date => {
-          setPeriodStartDate(date.toISOString().split('T')[0]);
-          setStartPickerVisible(false);
-        }}
-        onCancel={() => setStartPickerVisible(false)}
-        display={Platform.OS === 'android' ? 'spinner' : 'default'}
-      />
 
-      
+      {/* ✅ End Date Button */}
       <TouchableOpacity
         onPress={() => setEndPickerVisible(true)}
         style={{
@@ -326,20 +426,66 @@ export default function TransactionsScreen({ navigation }) {
         <MaterialIcons name="event" size={22} color={colors.primary} style={{ marginRight: 8 }} />
         <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
           {periodEndDate
-            ? new Date(periodEndDate).toLocaleDateString()
+            ? new Date(periodEndDate + 'T00:00:00').toLocaleDateString()
             : t('select_end_date')}
         </Text>
       </TouchableOpacity>
+
+      {/* ✅ Clear Period Button */}
+      {(periodStartDate || periodEndDate) && (
+        <TouchableOpacity
+          onPress={() => {
+            setPeriodStartDate(null);
+            setPeriodEndDate(null);
+          }}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderRadius: 8,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            marginBottom: spacing.sm,
+            borderColor: colors.error,
+            backgroundColor: colors.surface
+          }}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="clear" size={22} color={colors.error} style={{ marginRight: 8 }} />
+          <Text style={{ color: colors.error, fontSize: 16, fontWeight: '500' }}>
+            {t('clear_period') || 'Clear Period'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* ✅ Start Date Picker Modal */}
+      <DateTimePickerModal
+        isVisible={isStartPickerVisible}
+        mode="date"
+        onConfirm={date => {
+          setPeriodStartDate(getLocalDateString(date));
+          setStartPickerVisible(false);
+        }}
+        onCancel={() => setStartPickerVisible(false)}
+        display={Platform.OS === 'android' ? 'spinner' : 'default'}
+        maximumDate={getTodayEndOfDay()}
+      />
+
+      {/* ✅ End Date Picker Modal */}
       <DateTimePickerModal
         isVisible={isEndPickerVisible}
         mode="date"
         onConfirm={date => {
-          setPeriodEndDate(date.toISOString().split('T')[0]);
+          setPeriodEndDate(getLocalDateString(date));
           setEndPickerVisible(false);
         }}
         onCancel={() => setEndPickerVisible(false)}
         display={Platform.OS === 'android' ? 'spinner' : 'default'}
+        maximumDate={getTodayEndOfDay()}
+        minimumDate={periodStartDate ? new Date(periodStartDate + 'T00:00:00') : undefined}
       />
+
     </View>
   );
 

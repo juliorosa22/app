@@ -68,11 +68,19 @@ export default function RemindersScreen({ navigation }) {
 
   const remindersByDue = useMemo(() => {
     try {
-      return [...(reminders || [])].sort((a, b) => {
-        const aDate = a.due_datetime ? new Date(a.due_datetime) : new Date(8640000000000000);
-        const bDate = b.due_datetime ? new Date(b.due_datetime) : new Date(8640000000000000);
-        return aDate - bDate;
-      });
+      return [...(reminders || [])]
+        .filter(reminder => !reminder.is_completed) // Filter out completed reminders
+        .sort((a, b) => {
+          const now = new Date();
+          const aDate = a.due_datetime ? new Date(a.due_datetime) : new Date(8640000000000000);
+          const bDate = b.due_datetime ? new Date(b.due_datetime) : new Date(8640000000000000);
+          
+          // Calculate absolute difference from current date
+          const aDiff = Math.abs(aDate - now);
+          const bDiff = Math.abs(bDate - now);
+          
+          return aDiff - bDiff; // Closest to current date first
+        });
     } catch (error) {
       console.error('Error sorting reminders by due date:', error);
       return [];
@@ -81,10 +89,13 @@ export default function RemindersScreen({ navigation }) {
 
   const remindersByPriority = useMemo(() => {
     try {
-      return [...(reminders || [])].sort((a, b) => {
-        const order = { high: 0, medium: 1, low: 2 };
-        return (order[a.priority?.toLowerCase()] ?? 3) - (order[b.priority?.toLowerCase()] ?? 3);
-      });
+      return [...(reminders || [])]
+        .filter(reminder => !reminder.is_completed) // Filter out completed reminders
+        .sort((a, b) => {
+          const order = { high: 0, medium: 1, low: 2 };
+          // Descending order: high priority first (0 < 1 < 2)
+          return (order[a.priority?.toLowerCase()] ?? 3) - (order[b.priority?.toLowerCase()] ?? 3);
+        });
     } catch (error) {
       console.error('Error sorting reminders by priority:', error);
       return [];

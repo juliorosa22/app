@@ -20,52 +20,42 @@ import TransactionCard from '../components/TransactionCard';
 import ReminderCard from '../components/ReminderCard';
 import { useDataCache } from '../context/DataCacheContext';
 //import LottieView from 'lottie-react-native';
-import { formatValue } from 'react-currency-input-field';
-import { getCurrencyConfig } from '../utils/currencyHelper';
+import { getCurrencyConfig, formatCurrency } from '../utils/currencyHelper';
 import TelegramBotHeaderButton from '../components/TelegramBotHeaderButton';
 import { useLanguage } from '../context/LanguageContext';
+import { getDateRange, isDateInRange } from '../utils/dateHelper';
 
 export default function HomeScreen({ navigation }) {
   //console.log('[HomeScreen] Rendered');
   const { colors, spacing, typography, shadows } = useTheme();
   const { user } = useAuth();
-  const { getTransactions, getReminders, invalidateCache, initializeData } = useDataCache();
+  const { getTransactions, getReminders, invalidateCache, initializeData, getTransactionsByDateRange } = useDataCache();
   const { t } = useLanguage();
+  const [refreshing, setRefreshing] = useState(false);
+  
 
-  // Defensive: If any context is missing, show loading after all hooks
-  if (!colors || !user || !getTransactions || !getReminders) {
-    //console.error('[HomeScreen] Missing context:', { colors, user, getTransactions, getReminders });
-    return (
-      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" />
-        <Text>{t('loading')}</Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Get all transactions and reminders from cache
+  // Get all transactions for summary (keep this as is)
   const allTransactions = getTransactions();
   const allReminders = getReminders();
-
-  // Filter for recent transactions (last 30 days, 5 most recent)
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const thirtyDaysAgo = new Date(today);
-  thirtyDaysAgo.setDate(today.getDate() - 30);
-
+  // ✅ Use the new helper for recent transactions
+  const { start: thirtyDaysAgo, end: today } = getDateRange('last30days');
+  
   const recentTransactions = allTransactions
-    .filter(tx => {
-      if (!tx.date) return false;
-      const txDateObj = new Date(tx.date);
-      if (isNaN(txDateObj)) return false;
-      // Compare only the date part
-      const txDate = new Date(txDateObj.getFullYear(), txDateObj.getMonth(), txDateObj.getDate());
-      return txDate >= thirtyDaysAgo && txDate <= today;
-    })
+    .filter(tx => isDateInRange(tx.date, thirtyDaysAgo, today))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5);
 
+  // ✅ Better debugging
+  console.log('[HomeScreen] Date range:', {
+    start: thirtyDaysAgo.toISOString().split('T')[0],
+    end: today.toISOString().split('T')[0],
+    totalTransactions: allTransactions.length,
+    filteredTransactions: recentTransactions.length,
+    sampleTransaction: allTransactions[0]?.date
+  });
+
   // Filter for upcoming reminders (due date >= today)
+  const now = new Date();
   const upcomingReminders = allReminders
     .filter(rem => {
       if (!rem.due_datetime) return false; // Use due_datetime
@@ -74,10 +64,14 @@ export default function HomeScreen({ navigation }) {
     })
     .sort((a, b) => new Date(a.due_datetime) - new Date(b.due_datetime));
 
-  // Calculate summary
+  // Calculate summary (this should use ALL transactions, not filtered)
   const summary = {
-    total_expenses: allTransactions.filter(tx => tx.transaction_type === 'expense').reduce((sum, tx) => sum + Number(tx.amount), 0),
-    total_income: allTransactions.filter(tx => tx.transaction_type === 'income').reduce((sum, tx) => sum + Number(tx.amount), 0),
+    total_expenses: allTransactions
+      .filter(tx => tx.transaction_type === 'expense')
+      .reduce((sum, tx) => sum + Number(tx.amount), 0),
+    total_income: allTransactions
+      .filter(tx => tx.transaction_type === 'income')
+      .reduce((sum, tx) => sum + Number(tx.amount), 0),
     net_income: allTransactions.filter(tx => tx.transaction_type === 'income').reduce((sum, tx) => sum + Number(tx.amount), 0)
       - allTransactions.filter(tx => tx.transaction_type === 'expense').reduce((sum, tx) => sum + Number(tx.amount), 0),
     expense_count: allTransactions.filter(tx => tx.transaction_type === 'expense').length,
@@ -87,8 +81,7 @@ export default function HomeScreen({ navigation }) {
   // Pending reminders
   const pendingRemindersCount = allReminders.filter(rem => !rem.completed).length;
 
-  const [refreshing, setRefreshing] = useState(false);
-
+  
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await invalidateCache();
@@ -97,15 +90,6 @@ export default function HomeScreen({ navigation }) {
     }
     setRefreshing(false);
   }, [invalidateCache, initializeData]);
-
-  // Create a helper function for formatting currency
-  const formatCurrency = (amount, currency = 'USD') => {
-    const currencyConfig = getCurrencyConfig(currency);
-    return formatValue({
-      value: String(amount || 0), // Convert to string and handle null/undefined
-      ...currencyConfig,
-    });
-  };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -156,15 +140,6 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 
-  const handleUpgrade = () => {
-    if (!user?.id) {
-      Alert.alert('Please log in to upgrade.');
-      return;
-    }
-    const telegramBotUsername = 'okassist_bot';
-    const url = `https://t.me/${telegramBotUsername}?start=${user.id}`;
-    Linking.openURL(url);
-  };
 
 
   const styles = StyleSheet.create({

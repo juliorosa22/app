@@ -3,6 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SupabaseAuthService from '../services/supabaseAuth';
 import ApiService from '../services/api'; // Import ApiService
+//import * as RNLocalize from 'react-native-localize';
+//import { useDataCache } from '../context/DataCacheContext';
 
 const AuthContext = createContext();
 
@@ -17,11 +19,17 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  //console.log('[AuthContext] AuthProvider rendered');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [session, setSession] = useState(null);
+  // ✅ Add transition loading state
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Add this helper function to check if we should show loading
+  const shouldShowLoading = () => {
+    return loading || isTransitioning || (user && !isAuthenticated);
+  };
 
   // --- Handle Supabase OAuth callback on web ---
   useEffect(() => {
@@ -59,10 +67,14 @@ export const AuthProvider = ({ children }) => {
         
         if (event === 'SIGNED_IN' && session) {
           console.log('✅ Processing SIGNED_IN event');
+          setIsTransitioning(true); // ✅ Set transition state
           await handleSignIn(session);
+          setIsTransitioning(false); // ✅ Clear transition state
         } else if (event === 'SIGNED_OUT') {
           console.log('✅ Processing SIGNED_OUT event');
+          setIsTransitioning(true); // ✅ Set transition state
           await handleSignOut();
+          setIsTransitioning(false); // ✅ Clear transition state
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('✅ Processing TOKEN_REFRESHED event');
           await updateSession(session);
@@ -105,26 +117,73 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('🔐 Processing sign in...');
       
-      // Fetch user settings from the API
-      const settingsResult = await ApiService.getUserSettings();
-      const settings = settingsResult.success ? settingsResult.settings : {};
-
-      // Get name from Supabase user metadata (Google/email login)
-      const supabaseName =
+      // ✅ Set authenticated state BEFORE processing user data to prevent flicker
+      setSession(session);
+      setIsAuthenticated(true);
+      
+      // ✅ FIX: Better extraction of user name from different sources
+      const supabaseName = 
         session.user?.user_metadata?.full_name ||
         session.user?.user_metadata?.name ||
         session.user?.name ||
+        session.user?.user_metadata?.display_name ||
+        session.user?.email?.split('@')[0] || // Fallback to email username
         '';
+      
+      console.log('👤 Extracted user name:', supabaseName);
+      console.log('📧 User email:', session.user?.email);
+      console.log('🔍 User metadata:', JSON.stringify(session.user?.user_metadata, null, 2));
+      
+      // Fetch user settings from the API
+      const settingsResult = await ApiService.getUserSettings();
+      let settings = {};
 
-      // Merge name: prefer settings.name, fallback to Supabase name
+      if (settingsResult.success && settingsResult.settings) {
+        // User has existing settings
+        settings = settingsResult.settings;
+        console.log('✅ Found existing user settings');
+      } else {
+        // No settings found, create initial settings
+        console.log('ℹ️ No user settings found, creating initial settings...');
+        
+        // ✅ FIX: Better timezone detection and more comprehensive initial settings
+        const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+        
+        // ✅ FIX: Use Google profile data if available
+        const initialSettings = {
+          name: supabaseName || '',
+          currency: session.user?.user_metadata?.currency || 'USD',
+          language: session.user?.user_metadata?.locale?.substring(0, 2) || 'en', // Extract language from locale
+          timezone: deviceTimezone
+        };
+
+        console.log('📝 Creating initial settings:', initialSettings);
+
+        // Store initial settings in the database
+        const createResult = await ApiService.updateUserSettings(initialSettings);
+        
+        if (createResult.success) {
+          settings = createResult.settings;
+          console.log('✅ Initial user settings created successfully');
+        } else {
+          console.warn('⚠️ Failed to create initial settings:', createResult.error);
+          settings = initialSettings; // Use local settings as fallback
+        }
+      }
+
+      // ✅ FIX: Better user data merging with Google profile information
       const userData = {
         ...session.user,
         name: settings.name || supabaseName,
         currency: settings.currency || 'USD',
         language: settings.language || 'en',
         timezone: settings.timezone || 'UTC',
-        // ...other fields...
       };
+
+      console.log('👤 Final user data:', {
+        email: userData.email,
+        name: userData.name,
+      });
 
       // Save to AsyncStorage
       await AsyncStorage.multiSet([
@@ -133,12 +192,14 @@ export const AuthProvider = ({ children }) => {
       ]);
 
       setUser(userData);
-      setSession(session);
-      setIsAuthenticated(true);
       
       console.log('✅ User signed in successfully:', userData.email);
     } catch (error) {
       console.error('❌ Error handling sign in:', error);
+      // ✅ Reset auth state on error
+      setIsAuthenticated(false);
+      setUser(null);
+      setSession(null);
     }
   };
 
@@ -172,6 +233,7 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('🚀 Starting Google login...');
       setLoading(true);
+      setIsTransitioning(true);
       
       const result = await SupabaseAuthService.signInWithGoogle();
       
@@ -189,12 +251,23 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: result?.error };
       }
 
-      // Session will be handled by the auth state change listener
+      // ✅ FIX: Process the Google login result immediately for native apps
+      if (result.session && result.user) {
+        console.log('✅ Google authentication successful, processing session...');
+        await handleSignIn(result.session);
+        
+        return { 
+          success: true, 
+          message: `Welcome ${result.user?.name || 'User'}! Google login successful.`
+        };
+      }
+
+      // Session will be handled by the auth state change listener (fallback)
       console.log('✅ Google authentication successful');
       
       return { 
         success: true, 
-        message: `Welcome ${result.user.name}! Google login successful.`
+        message: `Welcome ${result.user?.name || 'User'}! Google login successful.`
       };
 
     } catch (error) {
@@ -204,7 +277,11 @@ export const AuthProvider = ({ children }) => {
         message: error.message || 'Google login failed. Please try again.' 
       };
     } finally {
-      setLoading(false);
+      // ✅ Don't set loading to false immediately, let the auth state change handle it
+      setTimeout(() => {
+        setLoading(false);
+        setIsTransitioning(false);
+      }, 500);
     }
   };
 
@@ -263,15 +340,27 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ✅ Add updateUser function
+  const updateUser = (updatedUserData) => {
+    try {
+      setUser(updatedUserData);
+      AsyncStorage.setItem('userData', JSON.stringify(updatedUserData));
+      console.log('✅ User context updated:', updatedUserData);
+    } catch (error) {
+      console.error('❌ Error updating user context:', error);
+    }
+  };
+
   const value = {
     user,
-    loading,
+    loading: shouldShowLoading(), // ✅ Use the helper function
     isAuthenticated,
     session,
     loginWithGoogle,
     logout,
     register,
     login,
+    updateUser, // ✅ Add this
     // For API calls, you can use session.access_token
     getAccessToken: () => session?.access_token,
   };

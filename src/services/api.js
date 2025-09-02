@@ -59,13 +59,15 @@ class ApiService {
   }
 
   // ============================================================================
-  // TRANSACTION OPERATIONS - Direct Database Queries
+  // TRANSACTION OPERATIONS - FIXED
   // ============================================================================
 
   async createTransaction(transactionData) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       // Auto-categorize if not provided
       const category = transactionData.category || this.categorizeTransaction(
@@ -76,7 +78,7 @@ class ApiService {
       const { data, error } = await this.supabase
         .from('transactions')
         .insert([{
-          user_id: user.id,
+          user_id: userResult.user.id,  // ✅ Fixed: use userResult.user.id
           amount: parseFloat(transactionData.amount),
           description: transactionData.description,
           category: category,
@@ -108,8 +110,10 @@ class ApiService {
 
   async getTransactions(days = 30, transactionType = null) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -117,7 +121,7 @@ class ApiService {
       let query = this.supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
         .gte('date', cutoffDate.toISOString())
         .order('date', { ascending: false });
 
@@ -145,8 +149,10 @@ class ApiService {
 
   async getTransactionSummary(days = 30) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -154,7 +160,7 @@ class ApiService {
       const { data, error } = await this.supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
         .gte('date', cutoffDate.toISOString());
 
       if (error) throw error;
@@ -195,25 +201,72 @@ class ApiService {
     }
   }
 
+  async updateTransaction(transactionId, updateData) {
+    try {
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
+
+      const { data, error } = await this.supabase
+        .from('transactions')
+        .update({ ...updateData, updated_at: new Date().toISOString() })
+        .eq('id', transactionId)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, transaction: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteTransaction(transactionId) {
+    try {
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
+
+      const { error } = await this.supabase
+        .from('transactions')
+        .delete()
+        .eq('id', transactionId)
+        .eq('user_id', userResult.user.id);  // ✅ Fixed: use userResult.user.id
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // ============================================================================
-  // REMINDER OPERATIONS - Direct Database Queries
+  // REMINDER OPERATIONS - FIXED
   // ============================================================================
 
   async createReminder(reminderData) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       const { data, error } = await this.supabase
         .from('reminders')
         .insert([{
-          user_id: user.id,
+          user_id: userResult.user.id,  // ✅ Fixed: use userResult.user.id
           title: reminderData.title,
           description: reminderData.description,
           source_platform: 'mobile_app',
           due_datetime: reminderData.due_datetime,
           reminder_type: reminderData.reminder_type || 'general',
           priority: reminderData.priority || 'medium',
+          is_completed: false,
           is_recurring: reminderData.is_recurring || false,
           recurrence_pattern: reminderData.recurrence_pattern,
           tags: reminderData.tags
@@ -238,13 +291,15 @@ class ApiService {
 
   async getReminders(includeCompleted = false, limit = 50) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       let query = this.supabase
         .from('reminders')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
         .order('due_datetime', { ascending: true, nullsLast: true })
         .order('priority', { ascending: false })
         .limit(limit);
@@ -272,8 +327,10 @@ class ApiService {
 
   async getDueReminders(hoursAhead = 24) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       const cutoffTime = new Date();
       cutoffTime.setHours(cutoffTime.getHours() + hoursAhead);
@@ -281,7 +338,7 @@ class ApiService {
       const { data, error } = await this.supabase
         .from('reminders')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
         .eq('is_completed', false)
         .not('due_datetime', 'is', null)
         .lte('due_datetime', cutoffTime.toISOString())
@@ -305,8 +362,10 @@ class ApiService {
 
   async completeReminder(reminderId) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       const { data, error } = await this.supabase
         .from('reminders')
@@ -316,7 +375,7 @@ class ApiService {
           updated_at: new Date().toISOString()
         })
         .eq('id', reminderId)
-        .eq('user_id', user.id)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
         .eq('is_completed', false)
         .select()
         .single();
@@ -342,8 +401,10 @@ class ApiService {
 
   async getReminderSummary(days = 30) {
     try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
@@ -351,7 +412,7 @@ class ApiService {
       const { data, error } = await this.supabase
         .from('reminders')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
         .gte('created_at', cutoffDate.toISOString());
 
       if (error) throw error;
@@ -400,8 +461,52 @@ class ApiService {
     }
   }
 
+  async updateReminder(reminderId, updateData) {
+    try {
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
+
+      const { data, error } = await this.supabase
+        .from('reminders')
+        .update({ ...updateData, updated_at: new Date().toISOString() })
+        .eq('id', reminderId)
+        .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { success: true, reminder: data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  async deleteReminder(reminderId) {
+    try {
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
+
+      const { error } = await this.supabase
+        .from('reminders')
+        .delete()
+        .eq('id', reminderId)
+        .eq('user_id', userResult.user.id);  // ✅ Fixed: use userResult.user.id
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
   // ============================================================================
-  // UTILITY OPERATIONS
+  // UTILITY OPERATIONS - FIXED
   // ============================================================================
 
   async getActivitySummary(days = 30) {
@@ -466,15 +571,17 @@ class ApiService {
 
   async getHealthCheck() {
     try {
-      // Simple health check by trying to get current user
-      const { data: { user }, error } = await this.supabase.auth.getUser();
+      const userResult = await this.getUserProfile();  // ✅ Fixed
+      if (!userResult.success) {
+        throw new Error(userResult.error || 'Authentication failed');
+      }
       
       return {
-        status: error ? "unhealthy" : "healthy",
+        status: "healthy",  // ✅ Fixed: removed undefined 'error' variable
         service: "Okan Personal Assistant - Direct Supabase",
         version: "2.0.0",
         database: "connected",
-        authenticated: !!user,
+        authenticated: !!userResult.user,  // ✅ Fixed: use userResult.user
         timestamp: new Date().toISOString()
       };
     } catch (error) {
@@ -484,6 +591,58 @@ class ApiService {
         timestamp: new Date().toISOString()
       };
     }
+  }
+
+  // ============================================================================
+  // PASSWORD RESET OPERATIONS
+  // ============================================================================
+
+  async resetPassword(email) {
+    return await this.auth.resetPassword(email);
+  }
+
+  async updatePassword(newPassword) {
+    return await this.auth.updatePassword(newPassword);
+  }
+
+  async verifyOtp(email, token, type = 'recovery') {
+    return await this.auth.verifyOtp(email, token, type);
+  }
+
+  async handlePasswordResetLink(url) {
+    return await this.auth.handlePasswordResetLink(url);
+  }
+
+  // Validate email format
+  validateEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  // Validate password strength
+  validatePassword(password) {
+    const errors = [];
+    
+    if (password.length < 6) {
+      errors.push('Password must be at least 6 characters long');
+    }
+    
+    if (password.length > 72) {
+      errors.push('Password must be less than 72 characters');
+    }
+    
+    if (!/[A-Za-z]/.test(password)) {
+      errors.push('Password must contain at least one letter');
+    }
+    
+    if (!/\d/.test(password)) {
+      errors.push('Password must contain at least one number');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   }
 
   // ============================================================================
@@ -553,117 +712,146 @@ class ApiService {
     return grouped;
   }
 
-  async updateTransaction(transactionId, updateData) {
-    try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
 
-      const { data, error } = await this.supabase
-        .from('transactions')
-        .update({ ...updateData, updated_at: new Date().toISOString() })
-        .eq('id', transactionId)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+// ============================================================================
+// USER_SETTINGS METHODS - FIXED
+// ============================================================================
 
-      if (error) throw error;
-
-      return { success: true, transaction: data };
-    } catch (error) {
-      return { success: false, error: error.message };
+async getUserSettings() {
+  try {
+    const userResult = await this.getUserProfile();
+    if (!userResult.success) {
+      throw new Error(userResult.error || 'Authentication failed');
     }
+
+    const { data, error } = await this.supabase
+      .from('user_settings')
+      .select(`
+        user_id,
+        name,
+        currency,
+        language,
+        timezone,
+        is_premium,
+        telegram_id,
+        premium_until,
+        freemium_credits,
+        credits_reset_date,
+        last_bot_interaction,
+        created_at,
+        updated_at
+      `)
+      .eq('user_id', userResult.user.id)  // ✅ Fixed: use userResult.user.id
+      .maybeSingle();  // ✅ Fixed: use maybeSingle() instead of single()
+
+    if (error) throw error;
+
+    // ✅ Return default values if no settings exist (new user)
+    return { 
+      success: true, 
+      settings: data || {
+        user_id: userResult.user.id,
+        name: userResult.user.name || '',
+        currency: 'USD',
+        language: 'en',
+        timezone: 'UTC',
+        is_premium: false,
+        freemium_credits: 30,
+        credits_reset_date: new Date().toISOString().split('T')[0]
+      }
+    };
+  } catch (error) {
+    console.error('❌ Get user settings error:', error);
+    return { success: false, error: error.message };
   }
+}
 
-  async deleteTransaction(transactionId) {
-    try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      const { error } = await this.supabase
-        .from('transactions')
-        .delete()
-        .eq('id', transactionId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
+async updateUserSettings(settings) {
+  try {
+    const userResult = await this.getUserProfile();
+    if (!userResult.success) {
+      throw new Error(userResult.error || 'Authentication failed');
     }
+    console.log('Updating settings for user:', userResult.user);
+    // ✅ Only update user-controllable fields
+    const allowedFields = {
+      user_id: userResult.user.id,  // ✅ Fixed: use userResult.user.id
+      // Only allow updating these safe fields
+      ...(settings.name !== undefined && { name: settings.name }),
+      ...(settings.currency !== undefined && { currency: settings.currency }),
+      ...(settings.language !== undefined && { language: settings.language }),
+      ...(settings.timezone !== undefined && { timezone: settings.timezone })
+      // ❌ Don't manually set: freemium_credits, is_premium, premium_until, updated_at
+      // ✅ updated_at will be set automatically by database trigger
+    };
+
+    const { data, error } = await this.supabase
+      .from('user_settings')
+      .upsert(allowedFields)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return { success: true, settings: data };
+  } catch (error) {
+    console.error('❌ Update user settings error:', error);
+    return { success: false, error: error.message };
   }
+}
 
-  async updateReminder(reminderId, updateData) {
-    try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+async deleteUserAccount(userId) {
+  try {
+    // ✅ Only delete user data from transactions and reminders tables
+    // Don't delete the user profile itself - let Supabase Auth handle that
+    
+    // Delete transactions
+    const { error: transactionsError } = await this.supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', userId);
 
-      const { data, error } = await this.supabase
-        .from('reminders')
-        .update({ ...updateData, updated_at: new Date().toISOString() })
-        .eq('id', reminderId)
-        .eq('user_id', user.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      return { success: true, reminder: data };
-    } catch (error) {
-      return { success: false, error: error.message };
+    if (transactionsError) {
+      console.error('❌ Error deleting transactions:', transactionsError);
+      throw new Error(`Failed to delete transactions: ${transactionsError.message}`);
     }
-  }
 
-  async deleteReminder(reminderId) {
-    try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+    // Delete reminders
+    const { error: remindersError } = await this.supabase
+      .from('reminders')
+      .delete()
+      .eq('user_id', userId);
 
-      const { error } = await this.supabase
-        .from('reminders')
-        .delete()
-        .eq('id', reminderId)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error.message };
+    if (remindersError) {
+      console.error('❌ Error deleting reminders:', remindersError);
+      throw new Error(`Failed to delete reminders: ${remindersError.message}`);
     }
-  }
 
-  async getUserSettings() {
-    try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      const { data, error } = await this.supabase
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      if (error) throw error;
-      return { success: true, settings: data };
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
+    // ✅ Optional: Delete user_settings if you want to reset preferences
+    const { error: settingsError } = await this.supabase
+      .from('user_settings')
+      .delete()
+      .eq('user_id', userId);
 
-  async updateUserSettings(settings) {
-    try {
-      const { data: { user } } = await this.supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      const { data, error } = await this.supabase
-        .from('user_settings')
-        .upsert({ user_id: user.id, ...settings, updated_at: new Date().toISOString() })
-        .select()
-        .single();
-      if (error) throw error;
-      return { success: true, settings: data };
-    } catch (error) {
-      return { success: false, error: error.message };
+    if (settingsError) {
+      console.error('⚠️ Warning: Could not delete user settings:', settingsError);
+      // Don't throw error for settings deletion failure
     }
+
+    console.log('✅ Successfully deleted user data for user:', userId);
+    
+    return { 
+      success: true,
+      message: 'User data deleted successfully'
+    };
+    
+  } catch (error) {
+    console.error('❌ Error deleting user account data:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
   }
+}
 }
 
 export default new ApiService();

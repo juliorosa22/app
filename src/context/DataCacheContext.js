@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import ApiService from '../services/api';
+import { getDateRange, isDateInRange } from '../utils/dateHelper';
 
 const DataCacheContext = createContext();
 
@@ -44,6 +45,11 @@ export const DataCacheProvider = ({ children }) => {
   const getReminders = useCallback((filterFn = null) => {
     return filterFn ? reminders.filter(filterFn) : reminders;
   }, [reminders]);
+
+  const getTransactionsByDateRange = useCallback((range = 'month') => {
+    const { start, end } = getDateRange(range);
+    return transactions.filter(tx => isDateInRange(tx.date, start, end));
+  }, [transactions]);
 
   // 3. Mutations: update local cache, then remote
   const addTransaction = async (tx) => {
@@ -117,6 +123,7 @@ export const DataCacheProvider = ({ children }) => {
       transactions,
       reminders,
       categories,
+      getTransactionsByDateRange,
     }}>
       {children}
     </DataCacheContext.Provider>

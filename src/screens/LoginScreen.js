@@ -63,7 +63,7 @@ export default function LoginScreen({ navigation }) {
     if (!result.success) {
       Alert.alert(t('login_failed'), result.message);
     } else {
-      await initializeData();
+      // ✅ Let AuthContext handle data initialization
       Alert.alert(t('success'), t('login_successful'));
     }
   };
@@ -72,17 +72,30 @@ export default function LoginScreen({ navigation }) {
     setGoogleLoading(true);
     try {
       const result = await loginWithGoogle();
+      
+      console.log('📊 Google login result:', {
+        success: result.success,
+        message: result.message,
+        hasError: !!result.error
+      });
+      
       if (result.success) {
-        await initializeData();
-        console.log('✅ Login successful via AuthContext');
+        console.log('✅ Google login successful, user should be authenticated');
+        // ✅ Don't show alert immediately, let the auth flow complete
+        //setTimeout(() => {
+        //  Alert.alert(t('success'), result.message || t('login_successful'));
+       // }, 500);
       } else {
         Alert.alert(t('google_login_failed'), result.message);
       }
     } catch (error) {
-      console.error('Google login error:', error);
+      console.error('❌ Google login error in LoginScreen:', error);
       Alert.alert(t('error'), t('google_login_error'));
     } finally {
-      setGoogleLoading(false);
+      // ✅ Add delay to prevent flicker
+      setTimeout(() => {
+        setGoogleLoading(false);
+      }, 500);
     }
   };
 
@@ -98,7 +111,7 @@ export default function LoginScreen({ navigation }) {
     },
     logoContainer: {
       alignItems: 'center',
-      marginBottom: spacing.xxxl,
+      marginBottom: spacing.lg,
     },
     logoImage: {
       width: 80,
@@ -228,6 +241,15 @@ export default function LoginScreen({ navigation }) {
     loadingText: {
       marginLeft: spacing.sm,
     },
+    forgotPasswordContainer: {
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    forgotPasswordText: {
+      color: colors.primary,
+      fontSize: typography.fontSize.sm,
+      fontWeight: typography.fontWeight.medium,
+    },
   });
 
   const isLoading = loading || googleLoading;
@@ -314,6 +336,15 @@ export default function LoginScreen({ navigation }) {
               ) : (
                 <Text style={styles.loginButtonText}>{t('sign_in')}</Text>
               )}
+            </TouchableOpacity>
+
+            {/* Add after login button */}
+            <TouchableOpacity
+              style={styles.forgotPasswordContainer}
+              onPress={() => navigation.navigate('ForgotPassword')}
+              disabled={isLoading}
+            >
+              <Text style={styles.forgotPasswordText}>{t('forgot_password')}</Text>
             </TouchableOpacity>
           </View>
 

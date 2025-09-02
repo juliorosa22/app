@@ -21,8 +21,8 @@ import RegisterScreen from '../screens/RegisterScreen';
 import EditTransactionScreen from '../screens/EditTransactionScreen';
 import EditReminderScreen from '../screens/EditReminderScreen'; // <-- Add this import
 import TelegramBotHeaderButton from '../components/TelegramBotHeaderButton';
-
-
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 // TabIcon now uses only 'name' as key
 function TabIcon({ name, color, size = 26, opacity = 1 }) {
@@ -186,6 +186,22 @@ function AuthNavigator() {
           headerShown: true,
         }}
       />
+      <Stack.Screen 
+        name="ForgotPassword" 
+        component={ForgotPasswordScreen}
+        options={{ 
+          title: 'Forgot Password',
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen 
+        name="ResetPassword" 
+        component={ResetPasswordScreen}
+        options={{ 
+          title: 'Reset Password',
+          headerShown: true,
+        }}
+      />
     </Stack.Navigator>
   );
 }
@@ -257,14 +273,25 @@ global.navigationRef = createNavigationContainerRef();
 
 // Root App Navigator
 export default function AppNavigator() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const { colors } = useTheme();
-  //console.log('[AppNavigator] Rendered. isAuthenticated:', isAuthenticated, 'loading:', loading, 'colors:', colors);
+  
+  // ✅ Enhanced debug logging
+  console.log('🔍 AppNavigator state:', { 
+    isAuthenticated, 
+    loading, 
+    hasUser: !!user,
+    userEmail: user?.email,
+    timestamp: new Date().toISOString()
+  });
 
-  if (loading) {
-    //console.log('[AppNavigator] Loading state');
+  // ✅ Show loading for any loading state or unstable auth state
+  if (loading || (user && !isAuthenticated)) {
+    console.log('🔄 Showing loading screen - loading:', loading, 'user exists but not authenticated:', (user && !isAuthenticated));
     return <LoadingScreen />;
   }
+
+  console.log('🎯 Rendering navigator for:', isAuthenticated ? 'authenticated user' : 'unauthenticated user');
 
   return (
     <NavigationContainer

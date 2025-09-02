@@ -28,8 +28,8 @@ export default function RegisterScreen({ navigation }) {
     confirmPassword: '',
     currency: 'USD',
     language: 'en',
-    timezone: 'UTC',
   });
+
   const [errors, setErrors] = useState({});
 
   const handleInputChange = (field, value) => {
@@ -66,10 +66,24 @@ export default function RegisterScreen({ navigation }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const getDeviceTimezone = () => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (error) {
+      return 'UTC';
+    }
+  };
+
   const handleRegister = async () => {
     if (!validateForm()) return;
-    // Pass currency, language, timezone to backend
-    const result = await register(formData);
+    
+    // ✅ Include device timezone in the registration data
+    const registrationData = {
+      ...formData,
+      timezone: getDeviceTimezone(), // Auto-detected from device
+    };
+    
+    const result = await register(registrationData);
     if (result.success) {
       Alert.alert(t('success'), result.message);
     } else {
@@ -196,12 +210,52 @@ export default function RegisterScreen({ navigation }) {
     currencyTextSelected: {
       color: colors.textOnPrimary,
     },
+    
+    // ✅ Add language selector styles (matching currency selector)
+    languageContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    languageOption: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    languageOptionSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    languageFlag: {
+      fontSize: typography.fontSize.sm,
+      marginRight: spacing.xs,
+    },
+    languageText: {
+      fontSize: typography.fontSize.sm,
+      color: colors.textSecondary,
+    },
+    languageTextSelected: {
+      color: colors.textOnPrimary,
+    },
   });
 
   const currencies = ['USD', 'EUR', 'BRL'];
+  
+  // ✅ Language options with flags
+  const languages = [
+    { code: 'en', name: 'English', flag: '🇺🇸' },
+    { code: 'pt', name: 'Português', flag: '🇧🇷' },
+    { code: 'es', name: 'Español', flag: '🇪🇸' },
+  ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top','bottom']}>
       <KeyboardAvoidingView 
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -282,6 +336,33 @@ export default function RegisterScreen({ navigation }) {
               </View>
             </View>
 
+            {/* ✅ Improved Language Selector */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>{t('language_label') || 'Language'}</Text>
+              <View style={styles.languageContainer}>
+                {languages.map((language) => (
+                  <TouchableOpacity
+                    key={language.code}
+                    style={[
+                      styles.languageOption,
+                      formData.language === language.code && styles.languageOptionSelected,
+                    ]}
+                    onPress={() => handleInputChange('language', language.code)}
+                  >
+                    <Text style={styles.languageFlag}>{language.flag}</Text>
+                    <Text
+                      style={[
+                        styles.languageText,
+                        formData.language === language.code && styles.languageTextSelected,
+                      ]}
+                    >
+                      {language.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>{t('password_label')}</Text>
               <TextInput
@@ -306,30 +387,6 @@ export default function RegisterScreen({ navigation }) {
                 secureTextEntry
               />
               {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Timezone</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. America/Sao_Paulo"
-                value={formData.timezone}
-                onChangeText={(value) => handleInputChange('timezone', value)}
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Language</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity onPress={() => handleInputChange('language', 'en')}>
-                  <Text>English</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleInputChange('language', 'pt')}>
-                  <Text>Português</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleInputChange('language', 'es')}>
-                  <Text>Español</Text>
-                </TouchableOpacity>
-              </View>
             </View>
 
             <TouchableOpacity

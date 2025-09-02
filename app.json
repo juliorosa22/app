@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "okanassist",
+    "name": "OkanAssist",
     "slug": "okanassist",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/okan_assist_icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
@@ -44,7 +44,8 @@
       "web"
     ],
     "plugins": [
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ],
     "owner": "okanassist22"
   }

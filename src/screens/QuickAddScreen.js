@@ -20,6 +20,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'; // or 'react-native-vector-icons/MaterialIcons'
 import CurrencyInput from '../components/CurrencyInput';
 import { useLanguage } from '../context/LanguageContext';
+import { getLocalDateString } from '../utils/dateHelper';
 
 export default function QuickAddScreen({ navigation }) {
   const { colors, spacing, typography, shadows } = useTheme();
@@ -41,7 +42,7 @@ export default function QuickAddScreen({ navigation }) {
     transaction_type: 'expense',
     category: '',
     merchant: '',
-    date: '', // <-- add this
+    date: getLocalDateString(), // ✅ Default to today's date
   });
 
   // Reminder form state
@@ -196,7 +197,7 @@ export default function QuickAddScreen({ navigation }) {
           <MaterialIcons name="event" size={22} color={colors.primary} style={{ marginRight: 8 }} />
           <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
             {transactionForm.date
-              ? new Date(transactionForm.date).toLocaleDateString()
+              ? new Date(transactionForm.date + 'T00:00:00').toLocaleDateString()
               : t('date_placeholder')}
           </Text>
         </TouchableOpacity>
@@ -206,6 +207,9 @@ export default function QuickAddScreen({ navigation }) {
           onConfirm={handleTransactionDateConfirm}
           onCancel={hideTransactionDatePicker}
           display={Platform.OS === 'android' ? 'spinner' : 'default'}
+          maximumDate={new Date()} // ✅ Cannot select future dates
+          minimumDate={new Date(2020, 0, 1)} // ✅ Optional: Cannot select dates before 2020
+          date={transactionForm.date ? new Date(transactionForm.date + 'T00:00:00') : new Date()} // ✅ Default to selected date or today
         />
       </View>
       <TouchableOpacity
@@ -390,12 +394,21 @@ export default function QuickAddScreen({ navigation }) {
     if (!validateTransaction()) return;
     setLoading(true);
     try {
+      // ✅ Fix: Use selected date or today's date in local timezone
+      let transactionDate = transactionForm.date;
+      if (!transactionDate) {
+        // If no date selected, use today's date at start of day in local timezone
+        const today = new Date();
+        transactionDate = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString().split('T')[0];
+      }
+
       await addTransaction({
         ...transactionForm,
         amount: parseFloat(transactionForm.amount),
         user_id: user?.id,
-        date: new Date().toISOString()
+        date: transactionDate // ✅ Use date without time component
       });
+
       Alert.alert(
         t('success'),
         t('transaction_added'),
@@ -408,7 +421,8 @@ export default function QuickAddScreen({ navigation }) {
                 amount: '',
                 transaction_type: 'expense',
                 category: '',
-                merchant: ''
+                merchant: '',
+                date: '' // ✅ Reset date field
               });
             }
           },
@@ -476,7 +490,9 @@ export default function QuickAddScreen({ navigation }) {
   const hideReminderDatePicker = () => setReminderDatePickerVisibility(false);
 
   const handleTransactionDateConfirm = (date) => {
-    setTransactionForm({ ...transactionForm, date: date.toISOString().split('T')[0] }); // YYYY-MM-DD
+    // ✅ Store as YYYY-MM-DD format (date only, no time)
+    const dateString = getLocalDateString(date);
+    setTransactionForm({ ...transactionForm, date: dateString });
     hideTransactionDatePicker();
   };
 
