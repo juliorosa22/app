@@ -6,9 +6,13 @@
     "start": "expo start",
     "start:tunnel": "expo start --tunnel",
     "start:clear": "expo start --clear",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web"
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build:dev": "eas build --platform android --profile development",
+    "build:preview": "eas build --platform android --profile preview",
+    "build:prod": "eas build --platform android --profile production",
+    "submit:prod": "eas submit --platform android --profile production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -52,7 +56,8 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-web": "^0.20.0",
     "expo-system-ui": "~5.0.11",
-    "expo-navigation-bar": "~4.2.8"
+    "expo-navigation-bar": "~4.2.8",
+    "expo-updates": "~0.28.17"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

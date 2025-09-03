@@ -4,10 +4,10 @@
     "slug": "okanassist",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/okan_assist_icon.png",
+    "icon": "./assets/icon_okanassist.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/okanassist_icon_nobg.png",
+      "image": "./assets/icon_nobg_okanassist.png",
       "resizeMode": "contain",
       "backgroundColor": "#1e3a8a"
     },
@@ -16,12 +16,15 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.okanassist.mobile"
+      "bundleIdentifier": "com.okanassist.mobile",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "package": "com.okanassist.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon_nobg_okanassist.png",
         "backgroundColor": "#1e3a8a"
       },
       "permissions": [
@@ -31,10 +34,18 @@
         "RECEIVE_BOOT_COMPLETED",
         "WAKE_LOCK",
         "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS",
         "SCHEDULE_EXACT_ALARM"
       ],
       "versionCode": 1,
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon_okanassist.png"
@@ -58,7 +69,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification_okanassist.png",
+          "icon": "./assets/notification_icon.png",
           "color": "#1e3a8a",
           "defaultChannel": "default"
         }
@@ -68,8 +79,11 @@
     ],
     "owner": "okanassist22",
     "notification": {
-      "icon": "./assets/notification_okanassist.png",
+      "icon": "./assets/notification_icon.png",
       "color": "#1e3a8a"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/63febc71-0f27-4e89-8725-f394dcba0ca2"
     }
   }
 }
