@@ -108,7 +108,7 @@ These terms constitute a legally binding agreement between you and OkanAssist.
 
 📞 Support & Contact:
 Contact us through the Telegram bot for assistance.
-Email: support@okanassist.com
+Email: okanfit.ai@gmail.com
 Response time: 24-48 hours
 
 Version 1.0 - Effective: ${new Date().toLocaleDateString()}
@@ -217,7 +217,7 @@ Estos términos constituyen un acuerdo legalmente vinculante entre tú y OkanAss
 
 📞 Soporte y Contacto:
 Contáctanos a través del bot de Telegram para asistencia.
-Correo: support@okanassist.com
+Correo: okanfit.ai@gmail.com
 Tiempo de respuesta: 24-48 horas
 
 Versión 1.0 - Efectivo: ${new Date().toLocaleDateString()}
@@ -326,7 +326,7 @@ Estes termos constituem um acordo legalmente vinculativo entre você e o OkanAss
 
 📞 Suporte e Contato:
 Entre em contato através do bot do Telegram para assistência.
-E-mail: support@okanassist.com
+E-mail: okanfit.ai@gmail.com
 Tempo de resposta: 24-48 horas
 
 Versão 1.0 - Efetivo: ${new Date().toLocaleDateString()}
@@ -402,7 +402,7 @@ export const LEGAL_CONFIG = {
   version: '1.0',
   lastUpdated: new Date().toISOString().split('T')[0],
   contact: {
-    email: 'support@okanassist.com',
+    email: 'okanfit.ai@gmail.com',
     telegram: '@okassist_bot',
     responseTime: '24-48 hours'
   },

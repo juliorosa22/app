@@ -20,7 +20,6 @@ export default function SettingsScreen() {
   const [timezone, setTimezone] = useState(user?.timezone || 'UTC');
   
   // Notification states
-  const [bankNotificationEnabled, setBankNotificationEnabled] = useState(false);
   const [reminderNotificationEnabled, setReminderNotificationEnabled] = useState(false);
   
   // Loading state for settings updates
@@ -46,13 +45,16 @@ export default function SettingsScreen() {
     { code: 'BRL', name: 'Brazilian Real', symbol: 'R$', flag: '🇧🇷', country: 'Brazil' },
   ];
 
+  // ✅ Add notification service availability check
+  const [notificationServiceAvailable, setNotificationServiceAvailable] = useState(true);
+
   useEffect(() => {
-    // ✅ Only load current settings, don't initialize again
+    // ✅ Load reminder settings only
     const loadNotificationSettings = async () => {
       // Wait a bit to ensure NotificationService is already initialized from App.js
       setTimeout(() => {
-        setBankNotificationEnabled(NotificationService.getBankNotificationEnabled());
         setReminderNotificationEnabled(NotificationService.getReminderNotificationEnabled());
+        setNotificationServiceAvailable(NotificationService.isNotificationServiceAvailable());
       }, 100);
     };
     
@@ -144,14 +146,17 @@ export default function SettingsScreen() {
     await handleUpdateSettings({ timezone: tz });
   };
 
-  const handleBankNotificationToggle = async (enabled) => {
-    setBankNotificationEnabled(enabled);
-    await NotificationService.setBankNotificationEnabled(enabled);
-  };
-
+  // ✅ Enhanced notification toggle handlers with better feedback
   const handleReminderNotificationToggle = async (enabled) => {
-    setReminderNotificationEnabled(enabled);
-    await NotificationService.setReminderNotificationEnabled(enabled);
+    try {
+      setReminderNotificationEnabled(enabled);
+      await NotificationService.setReminderNotificationEnabled(enabled);
+    } catch (error) {
+      console.error('Error toggling reminder notifications:', error);
+      // Revert the switch if there was an error
+      setReminderNotificationEnabled(!enabled);
+      Alert.alert('Error', 'Failed to update reminder notification settings');
+    }
   };
 
 
@@ -189,7 +194,7 @@ export default function SettingsScreen() {
     );
   };
 
-  // ✅ Export Data Function
+  // ✅ Export Data Function - Fixed file sharing
   const handleExportData = async () => {
     Alert.alert(
       t('export_data') || 'Export Data',
@@ -239,19 +244,30 @@ export default function SettingsScreen() {
                 csvContent += '\n';
               }
               
-              // Reminders CSV
+              // ✅ Updated Reminders CSV with correct fields
               if (reminders.length > 0) {
                 csvContent += 'REMINDERS\n';
-                csvContent += 'Title,Description,Date,Time,Type,Status\n';
+                csvContent += 'Title,Description,Due DateTime,Is Completed,Is Recurring\n';
                 
                 reminders.forEach(reminder => {
+                  // Format due_datetime properly
+                  const dueDateTime = reminder.due_datetime 
+                    ? new Date(reminder.due_datetime).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                      })
+                    : '';
+                  
                   const row = [
                     `"${(reminder.title || '').replace(/"/g, '""')}"`,
                     `"${(reminder.description || '').replace(/"/g, '""')}"`,
-                    reminder.reminder_date || '',
-                    reminder.reminder_time || '',
-                    reminder.reminder_type || '',
-                    reminder.status || 'active'
+                    `"${dueDateTime}"`,
+                    reminder.is_completed ? 'Yes' : 'No',
+                    reminder.is_recurring ? 'Yes' : 'No'
                   ].join(',');
                   csvContent += row + '\n';
                 });
@@ -267,20 +283,11 @@ export default function SettingsScreen() {
                 encoding: FileSystem.EncodingType.UTF8,
               });
 
-              // Share file
-              if (Platform.OS === 'ios') {
-                await Sharing.shareAsync(fileUri, {
-                  mimeType: 'text/csv',
-                  dialogTitle: t('export_data') || 'Export Data',
-                });
-              } else {
-                // Android - use Share API
-                await Share.share({
-                  url: fileUri,
-                  title: t('export_data') || 'Export Data',
-                  message: t('your_data_export') || 'Your OkanAssist data export',
-                });
-              }
+              // ✅ Use expo-sharing for both platforms (more reliable)
+              await Sharing.shareAsync(fileUri, {
+                mimeType: 'text/csv',
+                dialogTitle: t('export_data') || 'Export Data',
+              });
 
               Alert.alert(
                 t('success') || 'Success',
@@ -694,6 +701,19 @@ export default function SettingsScreen() {
       fontSize: typography.fontSize.base,
       fontWeight: typography.fontWeight.medium,
     },
+    // ✅ Add notification status styles
+    notificationStatus: {
+      fontSize: typography.fontSize.xs,
+      color: colors.textSecondary,
+      marginTop: spacing.xs,
+      fontStyle: 'italic',
+    },
+    notificationStatusWarning: {
+      color: colors.warning,
+    },
+    notificationStatusError: {
+      color: colors.error,
+    },
   });
 
   // ✅ Get current language display name
@@ -832,45 +852,7 @@ export default function SettingsScreen() {
           )}
         </View>
 
-        {/* Notification Settings 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔔 {t('notification_settings')}</Text>
-          
-          <View style={styles.notificationItem}>
-            <View style={styles.notificationRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>{t('transaction_notifications')}</Text>
-                <Text style={styles.settingDescription}>
-                  {t('transaction_notifications_desc')}
-                </Text>
-              </View>
-              <Switch
-                value={bankNotificationEnabled}
-                onValueChange={handleBankNotificationToggle}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={bankNotificationEnabled ? colors.surface : colors.textSecondary}
-              />
-            </View>
-          </View>
-
-          <View style={styles.notificationItem}>
-            <View style={styles.notificationRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>{t('reminder_notifications')}</Text>
-                <Text style={styles.settingDescription}>
-                  {t('reminder_notifications_desc')}
-                </Text>
-              </View>
-              <Switch
-                value={reminderNotificationEnabled}
-                onValueChange={handleReminderNotificationToggle}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor={reminderNotificationEnabled ? colors.surface : colors.textSecondary}
-              />
-            </View>
-          </View>
-        </View>
-      Need to improve*/}
+        
         {/* App Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('app_settings')}</Text>
@@ -913,6 +895,50 @@ export default function SettingsScreen() {
               <Text style={styles.settingArrow}>›</Text>
             </View>
           </TouchableOpacity>
+        </View>
+
+
+
+{/* Simplified Notification Settings - Only Reminders */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('notification_settings')}</Text>
+          
+          {/* Service Availability Status */}
+          {!notificationServiceAvailable && (
+            <View style={[styles.notificationItem, { backgroundColor: colors.warning + '20', borderColor: colors.warning, borderWidth: 1 }]}>
+              <Text style={[styles.settingLabel, { color: colors.warning }]}>
+                ⚠️ {t('notifications_not_available')}
+              </Text>
+              <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                {t('notifications_not_available_desc')}
+              </Text>
+            </View>
+          )}
+
+          {/* ✅ Only Reminder Notifications */}
+          <View style={styles.notificationItem}>
+            <View style={styles.notificationRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingLabel}>{t('reminder_notifications')}</Text>
+                <Text style={styles.settingDescription}>
+                  {t('reminder_notifications_desc') || 'Get notified when reminders are approaching their due date'}
+                </Text>
+                {reminderNotificationEnabled && (
+                  <Text style={styles.notificationStatus}>
+                    📅 Checking reminders when app is opened
+                  </Text>
+                )}
+              </View>
+              <Switch
+                value={reminderNotificationEnabled}
+                onValueChange={handleReminderNotificationToggle}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={reminderNotificationEnabled ? colors.surface : colors.textSecondary}
+                disabled={!notificationServiceAvailable}
+              />
+            </View>
+          </View>
+          
         </View>
 
         {/* Data & Privacy */}

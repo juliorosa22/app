@@ -1,42 +1,23 @@
-import { Alert, Platform } from 'react-native';
+import { Alert, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import ApiService from './api';
 
-// ✅ Safe import with error handling
-let PushNotification;
-let isPushNotificationAvailable = false;
-
-try {
-  PushNotification = require('react-native-push-notification').default;
-  isPushNotificationAvailable = true;
-  console.log('✅ PushNotification imported successfully');
-} catch (error) {
-  console.warn('⚠️ PushNotification not available:', error.message);
-  PushNotification = null;
-  isPushNotificationAvailable = false;
-}
+// ✅ Configure notifications for Expo
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 class NotificationService {
   constructor() {
     this.isInitialized = false;
-    this.bankNotificationEnabled = false;
     this.reminderNotificationEnabled = false;
-    this.isPushNotificationAvailable = isPushNotificationAvailable;
-    this.bankPatterns = [
-      // Common bank notification patterns
-      {
-        bankName: 'generic',
-        patterns: [
-          /compra.*\$?(\d+[.,]\d{2})/i,
-          /débito.*\$?(\d+[.,]\d{2})/i,
-          /transferência.*\$?(\d+[.,]\d{2})/i,
-          /pix.*\$?(\d+[.,]\d{2})/i,
-          /purchase.*\$?(\d+[.,]\d{2})/i,
-          /debit.*\$?(\d+[.,]\d{2})/i,
-          /transaction.*\$?(\d+[.,]\d{2})/i,
-        ]
-      }
-    ];
+    this.appStateSubscription = null;
+    this.lastReminderCheck = 0;
   }
 
   async initialize() {
@@ -45,34 +26,32 @@ class NotificationService {
     console.log('🔔 Starting NotificationService initialization...');
 
     try {
-      // ✅ Load settings first (this always works)
+      // ✅ Load settings first
       await this.loadSettings();
 
-      // ✅ Only configure push notifications if available
-      if (this.isPushNotificationAvailable && PushNotification) {
-        console.log('📱 Configuring push notifications...');
-        
-        PushNotification.configure({
-          onRegister: (token) => {
-            console.log('Notification token:', token);
-          },
-          onNotification: (notification) => {
-            console.log('Received notification:', notification);
-            this.handleNotification(notification);
-          },
-          permissions: {
-            alert: true,
-            badge: true,
-            sound: true,
-          },
-          popInitialNotification: true,
-          requestPermissions: Platform.OS === 'ios',
-        });
-
-        console.log('✅ Push notifications configured successfully');
-      } else {
-        console.log('⚠️ Push notifications not available - using fallback mode');
+      // ✅ Request permissions for Expo notifications
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
       }
+
+      if (finalStatus !== 'granted') {
+        console.warn('⚠️ Notification permissions not granted');
+        Alert.alert(
+          'Notifications Disabled',
+          'Please enable notifications in your device settings to receive reminders.',
+          [{ text: 'OK' }]
+        );
+      }
+
+      // ✅ Setup notification listeners
+      this.setupNotificationListeners();
+
+      // ✅ Setup AppState listener
+      this.setupAppStateListener();
 
       this.isInitialized = true;
       console.log('✅ NotificationService initialized successfully');
@@ -83,8 +62,8 @@ class NotificationService {
       // ✅ Still mark as initialized to prevent retry loops
       this.isInitialized = true;
       
-      // ✅ Ensure settings are loaded even if push notifications fail
-      if (!this.bankNotificationEnabled && !this.reminderNotificationEnabled) {
+      // ✅ Ensure settings are loaded even if notifications fail
+      if (!this.reminderNotificationEnabled) {
         await this.loadSettings();
       }
       
@@ -92,57 +71,63 @@ class NotificationService {
     }
   }
 
+  // ✅ Setup notification listeners for Expo
+  setupNotificationListeners() {
+    // ✅ Listen for notification responses (when user taps notification)
+    Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('🔔 Notification response received:', response);
+      // Handle notification tap here if needed
+    });
+
+    // ✅ Listen for received notifications
+    Notifications.addNotificationReceivedListener(notification => {
+      console.log('📱 Notification received:', notification);
+      // Handle foreground notifications here if needed
+    });
+  }
+
+  // ✅ Setup AppState listener
+  setupAppStateListener() {
+    this.appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('📱 AppState changed to:', nextAppState);
+      
+      if (nextAppState === 'active') {
+        // ✅ App came to foreground - check reminders
+        this.handleAppForeground();
+      }
+    });
+  }
+
+  // ✅ Handle app coming to foreground
+  async handleAppForeground() {
+    console.log('🌅 App is now in foreground');
+    
+    // ✅ Check reminders if enabled
+    if (this.reminderNotificationEnabled) {
+      const now = Date.now();
+      // ✅ Only check reminders once per hour to avoid spam
+      if (now - this.lastReminderCheck > 3600000) { // 1 hour
+        this.lastReminderCheck = now;
+        await this.checkUpcomingReminders();
+      }
+    }
+  }
+
   async loadSettings() {
     try {
       console.log('📖 Loading notification settings...');
       
-      const bankEnabled = await AsyncStorage.getItem('bankNotificationEnabled');
       const reminderEnabled = await AsyncStorage.getItem('reminderNotificationEnabled');
       
-      this.bankNotificationEnabled = bankEnabled === 'true';
       this.reminderNotificationEnabled = reminderEnabled === 'true';
       
       console.log('✅ Settings loaded:', {
-        bankNotificationEnabled: this.bankNotificationEnabled,
         reminderNotificationEnabled: this.reminderNotificationEnabled
       });
     } catch (error) {
       console.error('❌ Error loading notification settings:', error);
       // Set defaults
-      this.bankNotificationEnabled = false;
       this.reminderNotificationEnabled = false;
-    }
-  }
-
-  async setBankNotificationEnabled(enabled) {
-    try {
-      this.bankNotificationEnabled = enabled;
-      await AsyncStorage.setItem('bankNotificationEnabled', enabled.toString());
-      
-      if (enabled) {
-        if (!this.isPushNotificationAvailable) {
-          Alert.alert(
-            'Notifications Not Available',
-            'Push notifications are not properly configured. The app will work in manual mode. You can manually add transactions instead.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-        
-        await this.requestNotificationPermissions();
-        Alert.alert(
-          'Bank Notifications Enabled',
-          'The app will now analyze bank notifications to automatically create transactions. Make sure to grant notification access permissions.'
-        );
-      } else {
-        Alert.alert(
-          'Bank Notifications Disabled',
-          'The app will no longer analyze bank notifications.'
-        );
-      }
-    } catch (error) {
-      console.error('Error setting bank notification:', error);
-      Alert.alert('Error', 'Failed to update notification settings');
     }
   }
 
@@ -152,21 +137,13 @@ class NotificationService {
       await AsyncStorage.setItem('reminderNotificationEnabled', enabled.toString());
       
       if (enabled) {
-        if (!this.isPushNotificationAvailable) {
-          Alert.alert(
-            'Notifications Not Available',
-            'Push notifications are not properly configured. Reminder notifications will not work. Please check your app installation.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
-        
-        await this.requestNotificationPermissions();
-        this.scheduleReminderChecks();
         Alert.alert(
           'Reminder Notifications Enabled',
-          'You will now receive notifications when reminders are approaching their due date.'
+          'You will now receive notifications when reminders are approaching their due date while the app is open.'
         );
+        
+        // ✅ Check reminders immediately when enabled
+        await this.checkUpcomingReminders();
       } else {
         this.cancelAllReminderNotifications();
         Alert.alert(
@@ -180,158 +157,15 @@ class NotificationService {
     }
   }
 
-  async requestNotificationPermissions() {
-    if (Platform.OS === 'android') {
-      Alert.alert(
-        'Permissions Required',
-        'To analyze bank notifications, please grant notification access in your device settings.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Settings', onPress: () => {
-            console.log('Open notification settings');
-          }}
-        ]
-      );
-    }
-  }
-
-  async handleNotification(notification) {
-    if (!this.bankNotificationEnabled || !this.isPushNotificationAvailable) return;
-
-    try {
-      // Check if notification is from a banking app
-      if (this.isBankNotification(notification)) {
-        const transactionData = this.parseBankNotification(notification);
-        if (transactionData) {
-          await this.createTransactionFromNotification(transactionData);
-        }
-      }
-    } catch (error) {
-      console.error('Error handling notification:', error);
-    }
-  }
-
-  isBankNotification(notification) {
-    const bankAppIdentifiers = [
-      'bank', 'banco', 'itau', 'bradesco', 'santander', 'caixa', 
-      'nubank', 'inter', 'original', 'c6bank', 'btg', 'safra',
-      'chase', 'wellsfargo', 'bankofamerica', 'citibank'
-    ];
-
-    const appName = (notification.channelId || notification.tag || '').toLowerCase();
-    const title = (notification.title || '').toLowerCase();
-    const body = (notification.body || '').toLowerCase();
-
-    return bankAppIdentifiers.some(identifier => 
-      appName.includes(identifier) || title.includes(identifier) || body.includes(identifier)
-    );
-  }
-
-  parseBankNotification(notification) {
-    const text = `${notification.title || ''} ${notification.body || ''}`;
-    
-    for (const bank of this.bankPatterns) {
-      for (const pattern of bank.patterns) {
-        const match = text.match(pattern);
-        if (match) {
-          const amount = parseFloat(match[1].replace(',', '.'));
-          const isExpense = /compra|débito|debit|purchase|gasto|spend/i.test(text);
-          
-          return {
-            amount: amount,
-            description: this.extractDescription(text),
-            type: isExpense ? 'expense' : 'income',
-            category: this.guessCategory(text),
-            date: new Date().toISOString(),
-            source: 'bank_notification'
-          };
-        }
-      }
-    }
-    
-    return null;
-  }
-
-  extractDescription(text) {
-    const cleanText = text
-      .replace(/compra|débito|transferência|pix|purchase|debit|transaction/gi, '')
-      .replace(/\$?\d+[.,]\d{2}/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    return cleanText.substring(0, 100) || 'Bank transaction';
-  }
-
-  guessCategory(text) {
-    const categoryKeywords = {
-      'Food': ['restaurant', 'food', 'coffee', 'lunch', 'dinner', 'cafe', 'comida', 'restaurante'],
-      'Transport': ['uber', 'taxi', 'gas', 'fuel', 'metro', 'bus', 'transporte'],
-      'Shopping': ['market', 'store', 'shop', 'amazon', 'mercado', 'loja'],
-      'Entertainment': ['cinema', 'movie', 'game', 'netflix', 'spotify', 'entretenimento'],
-      'Bills': ['electricity', 'water', 'internet', 'phone', 'conta', 'fatura']
-    };
-
-    const lowerText = text.toLowerCase();
-    for (const [category, keywords] of Object.entries(categoryKeywords)) {
-      if (keywords.some(keyword => lowerText.includes(keyword))) {
-        return category;
-      }
-    }
-    
-    return 'Other';
-  }
-
-  async createTransactionFromNotification(transactionData) {
-    try {
-      Alert.alert(
-        'Bank Transaction Detected',
-        `Amount: $${transactionData.amount}\nDescription: ${transactionData.description}\nType: ${transactionData.type}`,
-        [
-          { text: 'Ignore', style: 'cancel' },
-          { text: 'Create Transaction', onPress: async () => {
-            const result = await ApiService.addTransaction(transactionData);
-            if (result.success) {
-              console.log('Transaction created from notification');
-              Alert.alert('Success', 'Transaction created successfully');
-            } else {
-              Alert.alert('Error', 'Failed to create transaction');
-            }
-          }}
-        ]
-      );
-    } catch (error) {
-      console.error('Error creating transaction from notification:', error);
-    }
-  }
-
-  async scheduleReminderChecks() {
-    if (!this.reminderNotificationEnabled || !this.isPushNotificationAvailable) return;
-
-    try {
-      // Schedule daily check for upcoming reminders
-      PushNotification.cancelAllLocalNotifications();
-      
-      // Schedule notification to check reminders every day at 9 AM
-      PushNotification.localNotificationSchedule({
-        id: 'reminder_check',
-        title: 'Checking Reminders',
-        message: 'Checking for upcoming reminders...',
-        date: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-        repeatType: 'day',
-        actions: ['Check'],
-      });
-
-      // Check immediately for due reminders
-      this.checkUpcomingReminders();
-    } catch (error) {
-      console.error('Error scheduling reminder checks:', error);
-    }
-  }
-
   async checkUpcomingReminders() {
     try {
+      console.log('🔍 Checking for upcoming reminders...');
+      
       const reminders = await ApiService.getReminders();
-      if (!reminders.success) return;
+      if (!reminders.success) {
+        console.log('❌ Failed to fetch reminders');
+        return;
+      }
 
       const now = new Date();
       const upcoming = reminders.reminders.filter(reminder => {
@@ -344,17 +178,17 @@ class NotificationService {
         return hoursDiff > 0 && hoursDiff <= 24;
       });
 
+      console.log(`📋 Found ${upcoming.length} upcoming reminders`);
+
       upcoming.forEach(reminder => {
         this.sendReminderNotification(reminder);
       });
     } catch (error) {
-      console.error('Error checking upcoming reminders:', error);
+      console.error('❌ Error checking upcoming reminders:', error);
     }
   }
 
-  sendReminderNotification(reminder) {
-    if (!this.isPushNotificationAvailable) return;
-    
+  async sendReminderNotification(reminder) {
     try {
       const dueDate = new Date(reminder.due_datetime);
       const now = new Date();
@@ -369,30 +203,35 @@ class NotificationService {
         timeText = `in ${minutes} minute${minutes > 1 ? 's' : ''}`;
       }
 
-      PushNotification.localNotification({
-        id: `reminder_${reminder.id}`,
-        title: 'Reminder Due Soon',
-        message: `"${reminder.title}" is due ${timeText}`,
-        actions: ['View', 'Complete'],
-        userInfo: { reminderId: reminder.id },
+      console.log(`🔔 Sending reminder notification for: ${reminder.title}`);
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Reminder Due Soon',
+          body: `"${reminder.title}" is due ${timeText}`,
+          data: { reminderId: reminder.id },
+        },
+        trigger: null, // Show immediately
       });
     } catch (error) {
-      console.error('Error sending reminder notification:', error);
+      console.error('❌ Error sending reminder notification:', error);
     }
   }
 
-  cancelAllReminderNotifications() {
-    if (!this.isPushNotificationAvailable) return;
-    
+  async cancelAllReminderNotifications() {
     try {
-      PushNotification.cancelAllLocalNotifications();
+      console.log('🚫 Cancelling all reminder notifications');
+      await Notifications.cancelAllScheduledNotificationsAsync();
     } catch (error) {
-      console.error('Error cancelling notifications:', error);
+      console.error('❌ Error cancelling notifications:', error);
     }
   }
 
-  getBankNotificationEnabled() {
-    return this.bankNotificationEnabled;
+  // ✅ Cleanup method
+  cleanup() {
+    if (this.appStateSubscription) {
+      this.appStateSubscription.remove();
+    }
   }
 
   getReminderNotificationEnabled() {
@@ -401,7 +240,14 @@ class NotificationService {
 
   // ✅ Add method to check availability
   isNotificationServiceAvailable() {
-    return this.isPushNotificationAvailable;
+    return true; // Expo notifications are always available in EAS builds
+  }
+
+  // ✅ Add method to manually trigger reminder check (for testing)
+  async triggerReminderCheck() {
+    if (this.reminderNotificationEnabled) {
+      await this.checkUpcomingReminders();
+    }
   }
 }
 

@@ -15,13 +15,13 @@ import { useLanguage } from '../context/LanguageContext';
 import { getDateRange, isDateInRange, getLocalDateString, getTodayEndOfDay } from '../utils/dateHelper';
 
 export default function TransactionsScreen({ navigation }) {
-  console.log('[TransactionsScreen] Rendered');
+  //console.log('[TransactionsScreen] Rendered');
   const { colors, spacing, typography } = useTheme();
   const { getTransactions, invalidateCache, initializeData } = useDataCache();
   const { user } = useAuth();
   const { t } = useLanguage();
   const allTransactions = getTransactions();
-  console.log('[TransactionsScreen] user:', user, 'transactions:', allTransactions.length);
+  //console.log('[TransactionsScreen] user:', user, 'transactions:', allTransactions.length);
 
   // MOVE STYLES TO THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const styles = {

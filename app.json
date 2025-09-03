@@ -7,7 +7,7 @@
     "icon": "./assets/okan_assist_icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/okanassist_icon_nobg.png",
       "resizeMode": "contain",
       "backgroundColor": "#1e3a8a"
     },
@@ -23,16 +23,27 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1e3a8a"
-      }
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "WAKE_LOCK",
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM"
+      ],
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon_okanassist.png"
     },
     "extra": {
       "googleWebClientId": "279482558276-20ea0o6hqhj9jl7eeqrpok9hptoma5rc.apps.googleusercontent.com",
       "supabaseUrl": "https://nprskndftygvxeldrthw.supabase.co",
       "supabasePublishableKey": "sb_publishable_lHQIZfcVFKpI51X9xT59gQ_CEs9ZQwr",
-      "apiUrl": "http://192.168.0.5:8000",
+      "apiUrl": "https://your-production-api.com",
       "eas": {
         "projectId": "63febc71-0f27-4e89-8725-f394dcba0ca2"
       }
@@ -44,9 +55,21 @@
       "web"
     ],
     "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification_okanassist.png",
+          "color": "#1e3a8a",
+          "defaultChannel": "default"
+        }
+      ],
       "expo-web-browser",
       "expo-font"
     ],
-    "owner": "okanassist22"
+    "owner": "okanassist22",
+    "notification": {
+      "icon": "./assets/notification_okanassist.png",
+      "color": "#1e3a8a"
+    }
   }
 }

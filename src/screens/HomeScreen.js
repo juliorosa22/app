@@ -37,11 +37,16 @@ export default function HomeScreen({ navigation }) {
   // Get all transactions for summary (keep this as is)
   const allTransactions = getTransactions();
   const allReminders = getReminders();
+  
   // ✅ Use the new helper for recent transactions
   const { start: thirtyDaysAgo, end: today } = getDateRange('last30days');
   
-  const recentTransactions = allTransactions
-    .filter(tx => isDateInRange(tx.date, thirtyDaysAgo, today))
+  // ✅ Filter transactions for last month only
+  const lastMonthTransactions = allTransactions.filter(tx => 
+    isDateInRange(tx.date, thirtyDaysAgo, today)
+  );
+
+  const recentTransactions = lastMonthTransactions
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5);
 
@@ -50,32 +55,73 @@ export default function HomeScreen({ navigation }) {
     start: thirtyDaysAgo.toISOString().split('T')[0],
     end: today.toISOString().split('T')[0],
     totalTransactions: allTransactions.length,
+    lastMonthTransactions: lastMonthTransactions.length,
     filteredTransactions: recentTransactions.length,
     sampleTransaction: allTransactions[0]?.date
   });
 
-  // Filter for upcoming reminders (due date >= today)
+  // ✅ Updated reminder filtering with new requirements
   const now = new Date();
-  const upcomingReminders = allReminders
-    .filter(rem => {
-      if (!rem.due_datetime) return false; // Use due_datetime
-      const due = new Date(rem.due_datetime);
-      return due >= now;
-    })
-    .sort((a, b) => new Date(a.due_datetime) - new Date(b.due_datetime));
+  const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000)); // Next 3 days
+  
+  // ✅ Priority order mapping for sorting
+  const priorityOrder = {
+    'urgent': 4,
+    'high': 3,
+    'medium': 2,
+    'mid': 2, // Handle both 'medium' and 'mid'
+    'low': 1
+  };
 
-  // Calculate summary (this should use ALL transactions, not filtered)
+  const filteredReminders = allReminders
+    .filter(rem => {
+      if (!rem.due_datetime) return false;
+      
+      const due = new Date(rem.due_datetime);
+      const isNotCompleted = !rem.is_completed; // ✅ Use is_completed field
+      
+      // ✅ Condition 1: Overdue reminders that aren't completed
+      const isOverdue = due < now && isNotCompleted;
+      
+      // ✅ Condition 2: Reminders due in the next 3 days
+      const isDueSoon = due >= now && due <= threeDaysFromNow;
+      
+      return isOverdue || isDueSoon;
+    })
+    .sort((a, b) => {
+      // ✅ First sort by priority (descending: Urgent > High > Medium > Low)
+      const priorityA = priorityOrder[a.priority?.toLowerCase()] || 0;
+      const priorityB = priorityOrder[b.priority?.toLowerCase()] || 0;
+      
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA; // Higher priority first
+      }
+      
+      // ✅ If same priority, sort by due date (earliest first)
+      const dueA = new Date(a.due_datetime);
+      const dueB = new Date(b.due_datetime);
+      return dueA - dueB;
+    });
+
+  // ✅ Use filteredReminders instead of upcomingReminders
+  const upcomingReminders = filteredReminders;
+
+  // ✅ Calculate summary from LAST MONTH transactions only
   const summary = {
-    total_expenses: allTransactions
+    total_expenses: lastMonthTransactions
       .filter(tx => tx.transaction_type === 'expense')
       .reduce((sum, tx) => sum + Number(tx.amount), 0),
-    total_income: allTransactions
+    total_income: lastMonthTransactions
       .filter(tx => tx.transaction_type === 'income')
       .reduce((sum, tx) => sum + Number(tx.amount), 0),
-    net_income: allTransactions.filter(tx => tx.transaction_type === 'income').reduce((sum, tx) => sum + Number(tx.amount), 0)
-      - allTransactions.filter(tx => tx.transaction_type === 'expense').reduce((sum, tx) => sum + Number(tx.amount), 0),
-    expense_count: allTransactions.filter(tx => tx.transaction_type === 'expense').length,
-    income_count: allTransactions.filter(tx => tx.transaction_type === 'income').length,
+    net_income: lastMonthTransactions
+      .filter(tx => tx.transaction_type === 'income')
+      .reduce((sum, tx) => sum + Number(tx.amount), 0) -
+      lastMonthTransactions
+      .filter(tx => tx.transaction_type === 'expense')
+      .reduce((sum, tx) => sum + Number(tx.amount), 0),
+    expense_count: lastMonthTransactions.filter(tx => tx.transaction_type === 'expense').length,
+    income_count: lastMonthTransactions.filter(tx => tx.transaction_type === 'income').length,
   };
 
   // Pending reminders
@@ -118,6 +164,7 @@ export default function HomeScreen({ navigation }) {
     <TransactionCard
       transaction={item}
       onPress={(selectedTx) => navigation.navigate('EditTransactionScreen', { transaction: selectedTx })}
+      currency={user?.currency || 'USD'} // ✅ Pass user's current currency
     />
   );
 
@@ -129,6 +176,7 @@ export default function HomeScreen({ navigation }) {
       }
       getPriorityColor={getPriorityColor}
       formatReminderDate={formatReminderDate}
+      // ✅ ReminderCard doesn't need currency since it doesn't display amounts
     />
   );
 
@@ -140,7 +188,54 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 
+  // ✅ Consolidated Quick Stats into one major component
+  const QuickStatsCard = () => {
+    // ✅ Helper function to format currency with proper negative handling
+    const formatNetIncome = (amount, currency = 'USD') => {
+      if (amount < 0) {
+        // For negative values, show minus sign before currency symbol
+        return `-${formatCurrency(Math.abs(amount), currency)}`;
+      }
+      return formatCurrency(amount, currency);
+    };
 
+    return (
+      <View style={styles.quickStatsCard}>
+        {/* Net Income - Last Month */}
+        <View style={styles.statSection}>
+          <Text style={[
+            styles.statAmount,
+            { color: summary.net_income >= 0 ? colors.success : colors.error }
+          ]}>
+            {formatNetIncome(summary.net_income || 0, user?.currency || 'USD')}
+          </Text>
+          <Text style={styles.statLabel}>{t('net_this_month')}</Text>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.statDivider} />
+
+        {/* Pending Tasks */}
+        <View style={styles.statSection}>
+          <Text style={styles.statAmount}>
+            {pendingRemindersCount}
+          </Text>
+          <Text style={styles.statLabel}>{t('pending_tasks')}</Text>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.statDivider} />
+
+        {/* Transactions - Last Month */}
+        <View style={styles.statSection}>
+          <Text style={styles.statAmount}>
+            {(summary.expense_count || 0) + (summary.income_count || 0)}
+          </Text>
+          <Text style={styles.statLabel}>{t('transactions')}</Text>
+        </View>
+      </View>
+    );
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -307,6 +402,28 @@ export default function HomeScreen({ navigation }) {
       textAlign: 'center',
       fontStyle: 'italic',
     },
+
+    // ✅ New consolidated Quick Stats styles
+    quickStatsCard: {
+      backgroundColor: colors.surface,
+      padding: spacing.lg,
+      borderRadius: 12,
+      marginBottom: spacing.lg,
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      ...shadows.sm,
+    },
+    statSection: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    statDivider: {
+      width: 1,
+      height: 40,
+      backgroundColor: colors.border,
+      marginHorizontal: spacing.md,
+    },
   });
 
   return (
@@ -338,31 +455,9 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.welcomeText}>{t('hello')}</Text>
           <Text style={styles.nameText}>{user?.name || t('user')}</Text>
         </View>
-        {/*<UserDebugInfo />*/}
-        {/* Quick Stats */}
-        <View style={styles.quickStats}>
-          <View style={styles.statCard}>
-            <Text style={[
-              styles.statAmount,
-              { color: summary.net_income >= 0 ? colors.success : colors.error }
-            ]}>
-              {formatCurrency(summary.net_income || 0, user?.currency || 'USD')}
-            </Text>
-            <Text style={styles.statLabel}>{t('net_this_month')}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statAmount}>
-              {pendingRemindersCount}
-            </Text>
-            <Text style={styles.statLabel}>{t('pending_tasks')}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statAmount}>
-              {(summary.expense_count || 0) + (summary.income_count || 0)}
-            </Text>
-            <Text style={styles.statLabel}>{t('transactions')}</Text>
-          </View>
-        </View>
+
+        {/* ✅ Use the consolidated Quick Stats component */}
+        <QuickStatsCard />
 
         {/* Recent Transactions */}
         <View style={styles.section}>
@@ -391,7 +486,9 @@ export default function HomeScreen({ navigation }) {
         {/* Upcoming Reminders */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('upcoming_reminders')}</Text>
+            <Text style={styles.sectionTitle}>
+              {t('upcoming_reminders') || 'Upcoming & Overdue Reminders'}
+            </Text>
             <TouchableOpacity
               style={styles.seeAllButton}
               onPress={() => navigation.navigate('Reminders')}

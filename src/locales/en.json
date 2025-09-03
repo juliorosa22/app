@@ -128,6 +128,7 @@
   "mark_completed": "Mark as completed",
   "reminder_updated": "Reminder updated",
   "reminder_deleted": "Reminder deleted",
+  "reminder_notifications_desc":"Get notified when reminders are approaching their due date",
   "edit_transaction_title": "Edit Transaction",
   "update_button": "Update",
   "delete_button": "Delete",
