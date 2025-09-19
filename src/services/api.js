@@ -749,16 +749,7 @@ async getUserSettings() {
     // ✅ Return default values if no settings exist (new user)
     return { 
       success: true, 
-      settings: data || {
-        user_id: userResult.user.id,
-        name: userResult.user.name || '',
-        currency: 'USD',
-        language: 'en',
-        timezone: 'UTC',
-        is_premium: false,
-        freemium_credits: 30,
-        credits_reset_date: new Date().toISOString().split('T')[0]
-      }
+      settings: data || false
     };
   } catch (error) {
     console.error('❌ Get user settings error:', error);
@@ -767,6 +758,13 @@ async getUserSettings() {
 }
 
 async updateUserSettings(settings) {
+  // Defensive: ensure 'this.supabase' and 'this.auth' are set
+  if (!this.supabase || !this.auth) {
+    console.error('ApiService not properly initialized: supabase or auth missing');
+    return { success: false, error: 'ApiService not properly initialized' };
+  }
+
+  console.log('Updating user settings with:', settings);
   try {
     const userResult = await this.getUserProfile();
     if (!userResult.success) {

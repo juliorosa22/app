@@ -77,7 +77,7 @@
       "expo-web-browser",
       "expo-font"
     ],
-    "owner": "okanassist22",
+    "owner": "okanfit",
     "notification": {
       "icon": "./assets/notification_icon.png",
       "color": "#1e3a8a"

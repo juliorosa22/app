@@ -14,7 +14,15 @@ export default function TelegramBotHeaderButton({ size = 32 }) {
       return;
     }
     const telegramBotUsername = 'okassist_bot';
-    const url = `https://t.me/${telegramBotUsername}?start=${user.id}`;
+    // Get user language, timezone, and currency (with fallbacks)
+    const language = user.language || 'en';
+    const timezone = user.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    const currency = user.currency || 'USD';
+
+    // Encode parameters for URL
+
+    const url = `https://t.me/${telegramBotUsername}?start=${user.id}&lang=${language}&tz=${timezone}&curr=${currency}`;
+    Alert.alert('Opening Telegram bot with params:', url);
     Linking.openURL(url);
   };
 

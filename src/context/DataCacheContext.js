@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import ApiService from '../services/api';
 import { getDateRange, isDateInRange } from '../utils/dateHelper';
-
+import { useAuth } from './AuthContext';
 const DataCacheContext = createContext();
 
 export const useDataCache = () => {
@@ -11,6 +11,7 @@ export const useDataCache = () => {
 };
 
 export const DataCacheProvider = ({ children }) => {
+  const { user, googleMetadata } = useAuth(); // Get user and metadata from AuthContext
   const [transactions, setTransactions] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [categories, setCategories] = useState({ expense: [], income: [] });
@@ -18,8 +19,23 @@ export const DataCacheProvider = ({ children }) => {
 
   // 1. Fetch all data on login
   const initializeData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
+      // Fetch user settings
+      const settingsResult = await ApiService.getUserSettings();
+
+      // If no settings exist, it's first login
+      if (!settingsResult.success || !settingsResult.settings || !settingsResult.settings.name) {
+        // Use Google metadata to set user settings
+        await ApiService.updateUserSettings({
+          name: user.name || 'Google User',
+          language: user.language || 'en',
+          currency: user.currency || 'USD',
+          timezone: user.timezone || 'UTC'
+        });
+      }
+
       const [txResult, remResult, catResult] = await Promise.all([
         ApiService.getTransactions(365),
         ApiService.getReminders(true, 1000),
@@ -35,7 +51,7 @@ export const DataCacheProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user, googleMetadata]);
 
   // 2. Local selectors for screens/views
   const getTransactions = useCallback((filterFn = null) => {

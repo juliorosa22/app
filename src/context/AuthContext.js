@@ -1,10 +1,9 @@
-// src/context/AuthContext.js - Direct Supabase integration
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SupabaseAuthService from '../services/supabaseAuth';
 import ApiService from '../services/api'; // Import ApiService
-//import * as RNLocalize from 'react-native-localize';
-//import { useDataCache } from '../context/DataCacheContext';
+
 
 const AuthContext = createContext();
 
@@ -174,6 +173,7 @@ export const AuthProvider = ({ children }) => {
       // ✅ FIX: Better user data merging with Google profile information
       const userData = {
         ...session.user,
+        ...session.user?.user_metadata, // Merge user_metadata
         name: settings.name || supabaseName,
         currency: settings.currency || 'USD',
         language: settings.language || 'en',
@@ -236,7 +236,7 @@ export const AuthProvider = ({ children }) => {
       setIsTransitioning(true);
       
       const result = await SupabaseAuthService.signInWithGoogle();
-      
+      console.log('🔔 Google login result:', result);
       // On web, result will be undefined because of redirect, so just return
       if (typeof window !== 'undefined' && window.location) {
         return { success: true, message: 'Redirecting to Google...' };
